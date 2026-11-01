@@ -93,6 +93,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 20px
 
 .tile { cursor: pointer; transition: border-color .15s; }
 .tile:hover { border-color: #3a404a; }
+.tile.on { outline: 2px solid #3a404a; }
 .tile .name { font-weight: 800; font-size: 15px; }
 .bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; margin: 6px 0 2px; }
 .bar i { display: block; height: 100%; border-radius: 4px; }

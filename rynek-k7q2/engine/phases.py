@@ -98,13 +98,13 @@ def classify(d):
     if res:
         phases.loc[idx] = [r[0] for r in res]
         conf.loc[idx] = [r[1] for r in res]
-    # histereza: zmiana fazy dopiero gdy nowa utrzyma się 2 sesje (kapitulacja i bessa natychmiast)
+    # histereza: zmiana fazy dopiero gdy nowa utrzyma się 2 sesje (eskalacja, kapitulacja i bessa natychmiast)
     raw = phases.to_numpy()
     sm = raw.copy()
     for i in range(1, len(raw)):
         if np.isnan(raw[i]) or np.isnan(sm[i - 1]):
             continue
-        if raw[i] != sm[i - 1] and raw[i] not in (4, 6):
+        if raw[i] != sm[i - 1] and raw[i] not in (3, 4, 6):
             if i + 0 >= 1 and raw[i - 1] != raw[i]:
                 sm[i] = sm[i - 1]
     d["phase_raw"] = phases

@@ -15,7 +15,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
 from config import INDICES, PHASES, CHART_DAYS          # noqa: E402
-import features, phases, model, cards, alerts           # noqa: E402
+import features, phases, model, cards, alerts, verify   # noqa: E402
 
 
 def clean(o):
@@ -88,6 +88,7 @@ def process(key, cfg, raw, oas):
         fan_dates = [x.strftime("%Y-%m-%d") for x in
                      pd.bdate_range(d.index[-1] + pd.Timedelta(days=1), periods=60)]
     bs = d["bottom_score"].dropna()
+    val = model.validate(d, pool)
     return d, {
         "key": key, "name": cfg["name"], "vol_name": cfg["vol_name"],
         "vol_fallback": bool(d.attrs.get("vol_fallback")),
@@ -116,8 +117,9 @@ def process(key, cfg, raw, oas):
         "dd_hist": {"d": [x.strftime("%Y-%m-%d") for x in d.index[::5]], "dd": ser(d["dd"].iloc[::5])},
         "corrections": model.corrections_table(d),
         "phase_stats": phases.phase_stats(d),
-        "validation": model.validate(d, pool),
+        "validation": val,
         "troughs": model.trough_check(d),
+        "verify": verify.build(d, val),
     }
 
 

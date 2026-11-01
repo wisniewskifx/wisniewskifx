@@ -41,7 +41,7 @@ async function load(refresh = false) {
   D = nd;
   $("#updated").innerHTML = `Aktualizacja: ${D.generated} · dane do ${D.indices[ORDER.find(k => D.indices[k])].last_date}` +
     (D.synthetic ? '<span class="badge-syn">DANE TESTOWE</span>' : "");
-  const tabs = [["USA", "🇺🇸 USA"], ...ORDER.filter(k => D.indices[k]).map(k => [k, D.indices[k].name]), ["META", "Metodologia"]];
+  const tabs = [["USA", "🇺🇸 USA"], ...ORDER.filter(k => D.indices[k]).map(k => [k, D.indices[k].name]), ["CHECK", "✓ Sprawdzalność"], ["META", "Metodologia"]];
   $("#tabs").innerHTML = tabs.map(([k, n]) => {
     const c = D.indices[k] ? D.indices[k].phase.color : (k === "USA" ? D.usa.consensus.color : null);
     return `<button data-t="${k}">${c ? `<span class="dot" style="background:${c}"></span>` : ""}${n}</button>`;
@@ -51,13 +51,14 @@ async function load(refresh = false) {
 }
 window.addEventListener("hashchange", () => { const t = location.hash.slice(1); if (D && t && t !== TAB) go(t); });
 function go(t, keepScroll = false) {
-  if (!(t === "USA" || t === "META" || (D.indices && D.indices[t]))) t = "USA";
+  if (!(t === "USA" || t === "META" || t === "CHECK" || (D.indices && D.indices[t]))) t = "USA";
   TAB = t;
   if (location.hash.slice(1) !== t) history.replaceState(null, "", "#" + t);
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
   if (!keepScroll) window.scrollTo(0, 0);
   if (t === "USA") renderUSA();
   else if (t === "META") renderMeta();
+  else if (t === "CHECK") renderCheck();
   else renderIndex(D.indices[t]);
 }
 
@@ -320,7 +321,7 @@ function renderMeta() {
   ${ks.map(k => troughTable(D.indices[k])).join("")}
   <div class="section">Jak to działa</div>
   <div class="card" style="font-size:13.5px;line-height:1.65">
-    <p><b>Fazy (1–6)</b> — reguły na percentylach indeksu zmienności danego rynku (VIX/VXN/RVX/VXD), strukturze VIX/VIX3M, VVIX, kredycie (HYG/IEF, HY OAS), breadth, RSI, dywergencji. Priorytet: Kapitulacja → Bessa → Dno zaliczone → Eskalacja → Pullback → Hossa. Zmiana fazy wymaga 2 sesji potwierdzenia (Kapitulacja i Bessa natychmiast).</p>
+    <p><b>Fazy (1–6)</b> — reguły na percentylach indeksu zmienności danego rynku (VIX/VXN/RVX/VXD), strukturze VIX/VIX3M, VVIX, kredycie (HYG/IEF, HY OAS), breadth, RSI, dywergencji. Priorytet: Kapitulacja → Bessa → Dno zaliczone → Eskalacja → Pullback → Hossa. Zmiana fazy wymaga 2 sesji potwierdzenia (Eskalacja, Kapitulacja i Bessa wchodzą natychmiast).</p>
     <p><b>Bottom Score</b> = P(do końca korekty cena nie spadnie więcej niż 3%). k-NN na 7 cechach (drawdown, percentyl zmienności, odwrót zmienności od szczytu 10d, zmienność vs średnia 10d, VIX/VIX3M, kredyt 20d, log dni od szczytu), ważone odległością, tylko epizody zakończone przed danym dniem. Shrinkage do base rate: p = (n·p_analog + 6·p_base)/(n+6), n = liczba niezależnych epizodów.</p>
     <p><b>Prognoza dna</b> = rozkład z dwóch źródeł: (A) faktyczny dalszy spadek do dna w analogach, (B) Monte Carlo — 4000 ścieżek 120 sesji z bootstrapu blokowego (bloki 10 sesji, wyrównane w czasie) zwrotów następujących po analogach. Dno epizodu = min(dotychczasowy dołek, przyszłe minimum). Mediana i percentyle z połączonego rozkładu.</p>
     <p><b>Stress</b> = średnia percentyli: zmienność, VIX/VIX3M, VVIX, kredyt, RSI, drawdown (0–100).</p>
@@ -341,6 +342,121 @@ function troughTable(x) {
     <td>${t.phase_at ? `<span style="color:${D.phases[t.phase_at].color}">●</span> ${D.phases[t.phase_at].short}` : "—"}</td><td>${t.phase4_near ? "✓" : "—"}</td>
     <td class="n">${t.score_at == null ? "—" : fmt(t.score_at, 0)}</td><td class="n">${t.p5_lag == null ? "brak" : t.p5_lag + " sesji"}</td><td class="n">${t.p5_vs_low == null ? "—" : pct(t.p5_vs_low, 1, true)}</td></tr>`).join("")}
   </table></div>`;
+}
+
+/* ---------------- SPRAWDZALNOŚĆ ---------------- */
+let CK = "NDX", CKT = null;
+const VCOL = { "KAPITULACJA": "var(--past)", "TYLKO ESKALACJA": "var(--approach)", "BESSA": "#c4553f", "PRZEGAPIONE": "var(--zone)" };
+const MCOL = { good: "var(--past)", weak: "var(--approach)", bad: "var(--zone)", na: "var(--muted)" };
+function cnt(c, p, best) {
+  if (!c || !c[p]) return "—";
+  const x = c[p], col = x.must ? D.phases[p].color : (x.ok >= x.n - 1 ? "var(--text)" : "var(--muted)");
+  return `<span class="mono" style="color:${col};font-weight:${x.must ? 800 : 500}">${x.ok}/${x.n}${x.must ? " ✓" : ""}</span>` +
+    (best != null ? `<span class="mono" style="color:var(--muted);font-size:11px"> (max ±5: ${best}/6)</span>` : "");
+}
+function renderCheck() {
+  const ks = ORDER.filter(k => D.indices[k] && D.indices[k].verify);
+  if (!ks.includes(CK)) CK = ks[0];
+  const tiles = ks.map(k => {
+    const v = D.indices[k].verify, s = v.summary, m = v.model;
+    return `<div class="card tile ${k === CK ? "on" : ""}" data-ck="${k}" style="border-top:3px solid ${MCOL[m.level]}">
+      <div class="name">${D.indices[k].name}</div>
+      ${s ? `<div style="margin-top:8px;font-size:12.5px;line-height:1.7">
+        Dołki ≥10%: <b class="mono">${s.n}</b><br>
+        Kapitulacja w oknie ±5 sesji: <b class="mono" style="color:${s.hit >= .6 ? "var(--past)" : "var(--approach)"}">${pct(s.hit, 0)}</b><br>
+        Tylko eskalacja / bessa: <b class="mono">${pct(s.esc_only, 0)}</b> · przegapione: <b class="mono" style="color:${s.missed > 0 ? "var(--zone)" : "inherit"}">${pct(s.missed, 0)}</b><br>
+        Sygnał „Dno zaliczone” po dołku: <b class="mono">${pct(s.p5_found, 0)}</b>${s.p5_lag_med != null ? ` · mediana ${fmt(s.p5_lag_med)} sesji, ${pct(s.p5_slip_med, 1, true)} nad dołkiem` : ""}</div>` : ""}
+      <div style="margin-top:8px;font-size:12px;color:${MCOL[m.level]}"><b>Bottom Score:</b> ${m.text}</div></div>`;
+  }).join("");
+  const x = D.indices[CK], v = x.verify;
+  const rows = [...v.troughs].reverse();
+  if (!CKT || !rows.find(t => t.trough === CKT)) CKT = rows[0] && rows[0].trough;
+  const sig = v.signals || {};
+  const sigRow = (lab, s, col) => s ? `<tr><td>${col ? `<span style="color:${col}">●</span> ` : ""}${lab}</td><td class="n">${s.signals}</td><td class="n">${pct(s.further_med)}</td>
+    <td class="n">${pct(s.within3, 0)}</td><td class="n">${pct(s.deeper10, 0)}</td><td class="n">${pct(s.ret20_med, 1, true)}</td><td class="n">${pct(s.ret60_med, 1, true)}</td><td class="n">${pct(s.win60, 0)}</td></tr>` : "";
+  let h = `
+  <div class="hero" style="--phase-bg:#2fb36b33">
+    <span class="pill st-past">SPRAWDZALNOŚĆ</span>
+    <h2>Czy system działał w historii?</h2>
+    <div class="headline">Dla każdego dołka ≥8% pokazujemy dokładnie to, co system widział <b>w dniu dna</b>: fazę, checklisty warunków (np. Kapitulacja 4/6), wartości strachu, kredytu i Bottom Score oraz po ilu sesjach przyszedł sygnał „Dno zaliczone”. Wszystko liczone przyczynowo — bez znajomości przyszłości (fazy z danych do dnia t, Bottom Score walk-forward).</div>
+  </div>
+  <div class="grid g4" style="margin-top:14px">${tiles}</div>
+
+  <div class="section">${x.name}: dołki i stan systemu w dniu dna <small>kliknij wiersz, aby zobaczyć szczegóły</small></div>
+  <div class="card tbl"><table>
+    <tr><th>Szczyt</th><th>Dno</th><th class="n">Głęb.</th><th class="n">Sesji</th><th>Faza w dniu dna</th><th>Werdykt</th>
+      <th>Kapitulacja</th><th>Dno zal.</th><th>Eskalacja</th><th>Bessa</th>
+      <th class="n">Max ${x.vol_name} (pct)</th><th class="n">Max VIX/VIX3M</th><th class="n">Max VVIX</th><th class="n">Min RSI</th><th class="n">Kredyt 20d</th><th class="n">Bottom / base</th><th class="n">Sygnał 5</th></tr>
+    ${rows.map(t => `<tr class="ckrow ${t.trough === CKT ? "cur" : ""}" data-t="${t.trough}" style="cursor:pointer">
+      <td>${t.peak}</td><td>${t.trough}${t.complete ? "" : " *"}</td><td class="n">${pct(t.depth)}</td><td class="n">${t.days}</td>
+      <td>${t.phase ? `<span style="color:${D.phases[t.phase].color}">●</span> ${D.phases[t.phase].short}` : "—"}${t.phase_raw && t.phase_raw !== t.phase ? ` <span style="color:var(--muted);font-size:11px">(dziś: ${D.phases[t.phase_raw].short})</span>` : ""}</td>
+      <td style="color:${VCOL[t.verdict]};font-weight:700">${t.verdict}</td>
+      <td>${cnt(t.counts, "4", t.best4_win)}</td><td>${cnt(t.counts, "5")}</td><td>${cnt(t.counts, "3")}</td><td>${cnt(t.counts, "6")}</td>
+      <td class="n">${fmt(t.vol_max_win, 1)} (${t.vol_max_pct == null ? "—" : fmt(t.vol_max_pct * 100) + "%"})</td>
+      <td class="n" style="color:${t.term_max_win >= 1 ? "var(--zone)" : "inherit"}">${fmt(t.term_max_win, 2)}</td>
+      <td class="n">${fmt(t.vvix_max_win, 0)}</td><td class="n" style="color:${t.rsi_min_win <= 30 ? "var(--zone)" : "inherit"}">${fmt(t.rsi_min_win, 0)}</td>
+      <td class="n" style="color:${t.credit_20d <= -0.025 ? "var(--risk)" : "inherit"}">${pct(t.credit_20d, 1, true)}</td>
+      <td class="n">${t.bottom == null ? "—" : fmt(t.bottom, 0) + " / " + fmt(t.bottom_base, 0)}</td>
+      <td class="n">${t.p5_lag == null ? "brak" : `${t.p5_lag} ses. ${pct(t.p5_vs_low, 1, true)}`}</td></tr>`).join("")}
+  </table>
+  <div class="note">Liczby x/n = ile warunków danej fazy było spełnionych w dniu dna; „✓” = spełnione warunki obowiązkowe (faza mogła się włączyć). Max ±5 = najlepszy wynik Kapitulacji w oknie 5 sesji wokół dna. Max wartości liczone w oknie ±5 sesji. Werdykt: KAPITULACJA = w ±5 sesji od dna system pokazał Kapitulację (sygnał T2 trafił w dno). TYLKO ESKALACJA = dno bez paniki, system dawał tylko T1 (to słabszy sygnał — w dniu dna cena i tak jest przy 10-dniowym dołku). BESSA = dno w fazie Bessy. PRZEGAPIONE = system pokazywał Hossę/Pullback. * = trwająca korekta.</div></div>
+
+  <div id="ckdet"></div>
+
+  <div class="section">Jakość sygnałów faz <small>co działo się po wejściu w fazę vs losowy dzień przy spadku ≥10%</small></div>
+  <div class="card tbl"><table>
+    <tr><th>Sygnał</th><th class="n">Ile razy</th><th class="n">Mediana dalszego spadku</th><th class="n">Dno w 3%</th><th class="n">&gt;10% niżej</th><th class="n">Zwrot 20 ses.</th><th class="n">Zwrot 60 ses.</th><th class="n">% zysk po 60</th></tr>
+    ${sigRow("Losowy dzień przy DD ≤ −10% (punkt odniesienia)", sig.base)}
+    ${sigRow("Wejście w 3. ESKALACJA", sig["3"], D.phases[3].color)}${sigRow("Wejście w 4. KAPITULACJA", sig["4"], D.phases[4].color)}${sigRow("Wejście w 5. DNO ZALICZONE", sig["5"], D.phases[5].color)}
+  </table><div class="note">Sygnał ma wartość, jeśli po nim dalszy spadek jest mniejszy, a zwroty i % zysku wyższe niż w wierszu odniesienia.</div></div>
+
+  <div class="section">Kalibracja Bottom Score <small>walk-forward</small></div>
+  <div class="grid g2"><div class="card"><div id="c_cal2" class="chart"></div></div>
+  <div class="card" style="font-size:13.5px;line-height:1.6">
+    <h3>Jak to czytać</h3>
+    <p>Każdy punkt: „gdy model mówił X%, dno było blisko w Y% przypadków”. Dobrze skalibrowany model leży na przekątnej i rośnie. Płaska albo opadająca linia = model nie odróżnia sytuacji.</p>
+    <p><b>Werdykt dla ${x.name}:</b> <span style="color:${MCOL[v.model.level]}">${v.model.text}</span></p>
+    ${x.validation ? `<p class="mono" style="font-size:12px;color:var(--text-2)">Brier model ${fmt(x.validation.brier, 3)} · base ${fmt(x.validation.brier_base, 3)} · skill ${pct(x.validation.skill, 1, true)} · n=${x.validation.n}</p>` : ""}
+  </div></div>`;
+  $("#app").innerHTML = h;
+  document.querySelectorAll("[data-ck]").forEach(el => el.onclick = () => { CK = el.dataset.ck; CKT = null; renderCheck(); });
+  document.querySelectorAll(".ckrow").forEach(el => el.onclick = () => { CKT = el.dataset.t; document.querySelectorAll(".ckrow").forEach(r => r.classList.toggle("cur", r === el)); drawCheckDetail(x); });
+  drawCheckDetail(x);
+  if (x.validation) {
+    const vv = x.validation;
+    plot("c_cal2", [{ x: [0, 1], y: [0, 1], type: "scatter", mode: "lines", line: { color: "#3a404a", dash: "dot" }, name: "idealnie", hoverinfo: "skip" },
+      { x: vv.calib.map(c => c.pred), y: vv.calib.map(c => c.real), text: vv.calib.map(c => "n=" + c.n), type: "scatter", mode: "lines+markers",
+        marker: { size: 10, line: { color: "#13161b", width: 2 } }, line: { color: SERIES[CK], width: 2 }, name: x.name,
+        hovertemplate: "model %{x:.0%} → realnie %{y:.0%} (%{text})<extra></extra>" }],
+      { hovermode: "closest", xaxis: { range: [0, 1], tickformat: ".0%", gridcolor: "#1f242b", title: "model mówił" }, yaxis: { range: [0, 1], tickformat: ".0%", gridcolor: "#1f242b", title: "zrealizowane" } });
+  }
+}
+function drawCheckDetail(x) {
+  const t = x.verify.troughs.find(z => z.trough === CKT);
+  if (!t) { $("#ckdet").innerHTML = ""; return; }
+  const c = t.chart;
+  $("#ckdet").innerHTML = `<div class="section">Szczegóły: dno ${t.trough} <small>${pct(t.depth)} · ${t.days} sesji od szczytu · ${t.verdict}</small></div>
+  <div class="grid g2">
+    <div class="card"><h3>Kurs i ${x.vol_name} wokół dna (tło = faza)</h3><div id="ck_px" class="chart sm"></div><div id="ck_vol" class="chart sm" style="height:180px"></div></div>
+    <div class="card"><h3>Ile warunków Kapitulacji i „Dno zaliczone” dzień po dniu</h3><div id="ck_cnt" class="chart sm"></div>
+      <div class="conds" style="margin-top:10px">${["4", "5", "3"].map(p => condHTML(+p, { ok: t.counts[p].must, items: t.counts[p].items })).join("")}</div>
+      <div class="note">Checklisty powyżej = stan w dniu dna.</div></div>
+  </div>`;
+  const shapes = [];
+  let st = 0;
+  for (let i = 1; i <= c.d.length; i++) if (i === c.d.length || c.phase[i] !== c.phase[st]) {
+    if (c.phase[st]) shapes.push({ type: "rect", xref: "x", yref: "paper", x0: c.d[st], x1: c.d[Math.min(i, c.d.length - 1)], y0: 0, y1: 1, fillcolor: D.phases[c.phase[st]].color + "30", line: { width: 0 }, layer: "below" });
+    st = i;
+  }
+  const vline = { type: "line", xref: "x", yref: "paper", x0: c.t, x1: c.t, y0: 0, y1: 1, line: { color: "#2fb36b", width: 1.5, dash: "dash" } };
+  plot("ck_px", [{ x: c.d, y: c.close, type: "scatter", mode: "lines", line: { color: "#eceae4", width: 2 }, name: "Kurs", hovertemplate: "%{y:,.0f}" },
+    { x: c.d, y: c.phase.map(p => p ? D.phases[p].short : null), yaxis: "y2", mode: "none", type: "scatter", hovertemplate: "%{y}", showlegend: false }],
+    { showlegend: false, shapes: [...shapes, vline], yaxis: { tickformat: ",.0f", gridcolor: "#1f242b" }, yaxis2: { overlaying: "y", visible: false, type: "category" } });
+  plot("ck_vol", [{ x: c.d, y: c.vol, type: "scatter", mode: "lines", line: { color: "#e5484d", width: 2 }, name: x.vol_name, hovertemplate: "%{y:.1f}" }],
+    { showlegend: false, shapes: [vline], margin: { l: 52, r: 16, t: 4, b: 30 }, yaxis: { gridcolor: "#1f242b" } });
+  plot("ck_cnt", [{ x: c.d, y: c.c4, type: "bar", name: "Kapitulacja (z 6)", marker: { color: "#ef4444" } },
+    { x: c.d, y: c.c5, type: "bar", name: "Dno zaliczone (z 6)", marker: { color: "#22c55e" } }],
+    { barmode: "group", bargap: .15, shapes: [vline], yaxis: { range: [0, 6.2], dtick: 1, gridcolor: "#1f242b" } });
 }
 
 load().catch(e => { $("#app").innerHTML = `<div class="loading">Błąd ładowania danych: ${e}</div>`; });
