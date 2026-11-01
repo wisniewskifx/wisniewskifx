@@ -402,6 +402,9 @@ function renderBuy() {
   </table>
   <div class="note"><b>Reguła decyzyjna (ustalona przed obliczeniem):</b> ${v.rule || ""}. Gdy nie jest spełniona — remis i wybór indeksu z najpłytszym „najgorszym scenariuszem”. „Typowo” = mediana zwrotu 120 sesji z dowolnego dnia w historii tego indeksu.</div></div>
 
+  ${B.robust ? `<div class="card" style="margin-top:14px;border-left:4px solid var(--approach)"><h3>Test odporności (czy to nie artefakt historii?)</h3>
+    <ul style="margin:0;padding-left:18px;line-height:1.7">${B.robust.map(x => `<li>${x}</li>`).join("")}</ul>
+    <div class="note">Nadwyżka = mediana w podobnych sytuacjach minus typowy wynik 120 sesji tego indeksu. Usuwa efekt „ten indeks po prostu rósł najszybciej przez 35 lat”. Podział na okresy pokazuje, czy wynik nie pochodzi z jednej epoki.</div></div>` : ""}
   <div class="grid g2" style="margin-top:14px">
     <div class="card"><h3>Rozrzut wyników po 120 sesjach (10–90%, kropka = mediana)</h3><div id="c_buy" class="chart sm"></div></div>
     <div class="card" style="font-size:13.5px;line-height:1.65"><h3>Kontekst z historii (od 1985)</h3>

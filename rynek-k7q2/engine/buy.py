@@ -93,6 +93,20 @@ def rank(px):
         ep_med = np.array([np.nanmedian(r120[ep == e]) for e in range(ep.max() + 1)])
         st["ep_med120"] = _f(np.median(ep_med))
         st["_ep_meds"] = ep_med
+        # ODPORNOŚĆ (pokazywana obok reguły, nie zmienia jej): okresy, nadwyżka nad typowym wynikiem, najgorsze epizody
+        ser120 = fwd[120].reindex(days)
+        for lab, lo, hi in (("pre2010", "1990-01-01", "2009-12-31"), ("post2010", "2010-01-01", "2100-01-01")):
+            x = ser120[(ser120.index >= lo) & (ser120.index <= hi)].dropna()
+            e = ep[(days >= lo) & (days <= hi)]
+            st[f"{lab}_med120"] = _f(x.median()) if len(x) else None
+            st[f"{lab}_eps"] = int(len(np.unique(e))) if len(e) else 0
+            st[f"{lab}_win120"] = _f((x > 0).mean()) if len(x) else None
+        worst = []
+        for e_ in range(ep.max() + 1):
+            dsel = days[ep == e_]
+            worst.append((str(dsel[0].date()), float(np.nanmedian(r120[ep == e_]))))
+        worst.sort(key=lambda z: z[1])
+        st["worst_eps"] = [{"start": w0, "r120": _f(w1)} for w0, w1 in worst[:5]]
         base = fwd[120].dropna()
         st["base_med120"] = _f(base.median())
         st["base_win120"] = _f((base > 0).mean())
@@ -116,7 +130,26 @@ def rank(px):
     for k in rows:
         rows[k].pop("_ep_meds", None)
     return {"market_type": mt_now, "roles": rl_now, "dd_now": {k: _f(now[k]) for k in now.index},
-            "rows": rows, "ranking": ranked, "verdict": verdict, "text": explain(rows, ranked, verdict, mt_now)}
+            "rows": rows, "ranking": ranked, "verdict": verdict, "text": explain(rows, ranked, verdict, mt_now),
+            "robust": robust_text(rows, ranked)}
+
+
+def robust_text(rows, ranked):
+    p = lambda x: "—" if x is None else f"{x * 100:+.1f}%"
+    out = []
+    for k in ranked:
+        r = rows[k]
+        ex = (r["ep_med120"] or 0) - (r["base_med120"] or 0)
+        w = ", ".join(f"{z['start'][:7]} {p(z['r120'])}" for z in r.get("worst_eps", [])[:3])
+        out.append(f"{NAMES[k]}: nadwyżka nad typowym wynikiem indeksu {p(ex)}; 1990–2009: {p(r.get('pre2010_med120'))} ({r.get('pre2010_eps', 0)} ep.), "
+                   f"od 2010: {p(r.get('post2010_med120'))} ({r.get('post2010_eps', 0)} ep.); najgorsze epizody: {w}.")
+    if len(ranked) >= 2:
+        exs = {k: (rows[k]["ep_med120"] or 0) - (rows[k]["base_med120"] or 0) for k in ranked}
+        best_ex = max(exs, key=exs.get)
+        same = best_ex == ranked[0]
+        out.append(("Po odjęciu typowego wyniku każdego indeksu kolejność " + ("się utrzymuje" if same else "się zmienia")
+                    + f" — największa nadwyżka: {NAMES[best_ex]} ({p(exs[best_ex])})."))
+    return out
 
 
 def explain(rows, ranked, v, mt):
