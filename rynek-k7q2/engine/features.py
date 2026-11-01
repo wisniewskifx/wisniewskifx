@@ -25,8 +25,14 @@ def build(raw, cfg, oas=None):
     vix = r["^VIX"]
     vol = r.get(cfg["vol"])
     fallback = False
-    if vol is None or vol.iloc[-20:].isna().mean() > 0.5 or vol.notna().sum() < 1500:
+    if vol is None or vol.notna().sum() < 1500:
         vol, fallback = vix, True
+    else:
+        # luki (Yahoo bywa niekompletne dla RVX/VXD): uzupełnij VIX-em przeskalowanym do tego rynku
+        ratio = (vol / vix).rolling(250, min_periods=60).median().ffill().bfill()
+        filled = vol.isna().sum()
+        vol = vol.fillna(vix * ratio)
+        d.attrs["vol_filled_recent"] = int(r[cfg["vol"]].iloc[-20:].isna().sum()) if filled else 0
     d["vol"] = vol
     d["vix"] = vix
     d.attrs["vol_fallback"] = fallback
