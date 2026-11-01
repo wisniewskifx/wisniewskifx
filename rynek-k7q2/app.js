@@ -467,7 +467,7 @@ function renderCheck() {
         Kapitulacja w oknie ±5 sesji: <b class="mono" style="color:${s.hit >= .6 ? "var(--past)" : "var(--approach)"}">${pct(s.hit, 0)}</b><br>
         Tylko eskalacja / bessa: <b class="mono">${pct(s.esc_only, 0)}</b> · przegapione: <b class="mono" style="color:${s.missed > 0 ? "var(--zone)" : "inherit"}">${pct(s.missed, 0)}</b><br>
         Sygnał „Dno zaliczone” po dołku: <b class="mono">${pct(s.p5_found, 0)}</b>${s.p5_lag_med != null ? ` · mediana ${fmt(s.p5_lag_med)} sesji, ${pct(s.p5_slip_med, 1, true)} nad dołkiem` : ""}</div>` : ""}
-      <div style="margin-top:8px;font-size:12px;color:${MCOL[m.level]}"><b>Bottom Score:</b> ${m.text}</div></div>`;
+      <div style="margin-top:8px;font-size:12px;color:${BS() ? "var(--past)" : "var(--muted)"}"><b>Bottom Score:</b> ${BS() ? "przeszedł test, pokazywany." : "nie przeszedł testu — usunięty ze strony."}</div></div>`;
   }).join("");
   const x = D.indices[CK], v = x.verify;
   const rows = [...v.troughs].reverse();
