@@ -391,7 +391,7 @@ function renderLead() {
     <ul style="margin:8px 0 0;padding-left:18px;line-height:1.7;color:var(--text-2)">${R.conclusion.map(x => `<li>${x}</li>`).join("")}</ul>
   </div>
 
-  <div class="section">Dziś: kto prowadzi spadki <small>drawdown od własnego rekordu</small></div>
+  <div class="section">Dziś: kto prowadzi spadki <small>spadek od 52-tygodniowego szczytu</small></div>
   <div class="grid g2">
     <div class="card"><div id="c_now" class="chart"></div></div>
     <div class="card"><h3>Siła Nasdaq vs S&amp;P 500 (NDX/SPX) i szerokość rynku (RSP/SPY)</h3><div id="c_rs" class="chart sm"></div><div id="c_ew" class="chart sm"></div>
@@ -421,7 +421,7 @@ function renderLead() {
       <td>${e.selective ? '<span class="pill st-approach">selektywna</span>' : '<span class="pill st-far">szeroka</span>'}</td>
       <td class="n">${["NDX", "SPX", "DJI", "RUT"].map(k => r[k] == null ? "—" : fmt(r[k], 1)).join(" / ")}</td>
       <td class="n" style="color:${rel == null ? "inherit" : rel > 0 ? "var(--past)" : "var(--zone)"}">${rel == null ? "—" : pct(rel, 0, true)}</td></tr>`; }).join("")}
-  </table><div class="note">Głębokości = max spadek każdego indeksu od własnego rekordu w czasie zdarzenia. Sektory dostępne od 1999. Odbudowa = lata od początku zdarzenia do powrotu indeksu na rekord sprzed zdarzenia. * = trwa.</div></div>
+  </table><div class="note">Korekta = spadek od 52-tygodniowego szczytu (standard rynkowy). Głębokości = max spadek każdego indeksu w czasie zdarzenia. Sektory dostępne od 1999. Odbudowa = lata od początku zdarzenia do powrotu na szczyt z roku przed zdarzeniem. * = trwa.</div></div>
   <div id="ledet"></div>`;
   $("#app").innerHTML = h;
   // dziś: słupki

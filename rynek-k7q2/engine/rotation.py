@@ -1,4 +1,4 @@
-"""Liderzy spadków: czy korekty i bessy mają swój wiodący indeks/sektor i co wtedy kupować.
+"""Liderzy spadków (korekta = spadek od 52-tygodniowego szczytu): czy korekty i bessy mają swój wiodący indeks/sektor i co wtedy kupować.
 
 1) Zdarzenia rynkowe (od 1985): korekty >= 10% któregokolwiek z 4 indeksów, zgrupowane w czasie.
    Dla każdego: głębokość wszystkich indeksów i sektorów, lider, kto pierwszy odrobił rekord,
@@ -22,10 +22,19 @@ def _f(x, d=4):
     return None if x is None or (isinstance(x, float) and np.isnan(x)) or pd.isna(x) else round(float(x), d)
 
 
+W52 = 252
+
+
+def _hi(s):
+    return s.rolling(W52, min_periods=1).max()
+
+
 def _episodes(s, thr=-0.10):
+    """Korekta = spadek od 52-tygodniowego szczytu (standard rynkowy). Epizod kończy się nowym 52-tyg. szczytem."""
     s = s.dropna()
-    dd = s / s.cummax() - 1
-    ep = (s >= s.cummax()).cumsum()
+    hi = _hi(s)
+    dd = s / hi - 1
+    ep = (s >= hi).cumsum()
     out = []
     for e, seg in s.groupby(ep):
         m = dd.loc[seg.index]
@@ -43,19 +52,21 @@ def _fwd(px, col, i, h):
 
 
 def market_events(px):
-    dd = px / px.cummax() - 1
+    dd = px / px.apply(_hi) - 1
     allep = []
     for k in IDX:
         if k in px:
             for e in _episodes(px[k]):
                 allep.append({**e, "idx": k})
-    allep.sort(key=lambda e: e["trough"])
-    groups = []
+    allep.sort(key=lambda e: e["peak"])
+    groups, gend = [], None
     for e in allep:
-        if groups and (e["trough"] - groups[-1][-1]["trough"]).days <= 120:
+        if groups and e["peak"] <= gend + pd.Timedelta(days=30):
             groups[-1].append(e)
+            gend = max(gend, e["trough"])
         else:
             groups.append([e])
+            gend = e["trough"]
     events = []
     for g in groups:
         start = min(e["peak"] for e in g)
@@ -80,7 +91,7 @@ def market_events(px):
         for k in IDX:
             if k not in px:
                 continue
-            hist = px[k].loc[:start].dropna()
+            hist = px[k].loc[start - pd.Timedelta(days=365):start].dropna()
             if not len(hist):
                 rec[k] = None
                 continue
@@ -165,7 +176,7 @@ def capitulation_vs_calm(frames):
 def analyze(long_df, raw=None, frames=None):
     cols = {k: long_df[t] for k, t in {**IDX, **{s: s for s in SECT}}.items() if t in long_df}
     px = pd.DataFrame(cols).dropna(subset=["SPX"]).ffill(limit=5)
-    dd = px / px.cummax() - 1
+    dd = px / px.apply(_hi) - 1
     ev = market_events(px)
     lvl = leader_vs_laggard(ev)
     cap = capitulation_vs_calm(frames or {})
@@ -207,6 +218,12 @@ def conclusion(o):
     if n_ev:
         top = ", ".join(f"{nm[k]} {v}" for k, v in sorted(o["lead_count"].items(), key=lambda x: -x[1]))
         L.append(f"Na {n_ev} zakończonych zdarzeń od {o['since'][:4]} lider spadków: {top}. Korekty mają liderów — rzadko spada wszystko po równo.")
+    sec = {}
+    for e in o["events"]:
+        if e["complete"] and e["lead_sector"]:
+            sec[e["lead_sector"]] = sec.get(e["lead_sector"], 0) + 1
+    if sec:
+        L.append("Sektor, który spadał najmocniej (od 1999): " + ", ".join(f"{o['sectors'][k]} {v}×" for k, v in sorted(sec.items(), key=lambda x: -x[1])) + ".")
     for key, lab in (("selective", "selektywnych"), ("broad", "szerokich")):
         g = lv[key]
         if g["n"] and g["250"]["n"]:
