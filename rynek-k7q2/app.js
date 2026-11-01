@@ -404,7 +404,7 @@ function renderLead() {
     <tr><td><b>Selektywna korekta</b> (lider −10%, najsilniejszy płycej niż −6%)<br><span class="note">kupno w dniu, gdy lider dotknął −10%</span></td><td class="n">${lv.selective.n}</td>${lvRow("", lv.selective)}</tr>
     <tr><td><b>Szeroka korekta</b><br><span class="note">kupno w dniu, gdy lider dotknął −10%</span></td><td class="n">${lv.broad.n}</td>${lvRow("", lv.broad)}</tr>
     <tr><td>Wszystkie zdarzenia</td><td class="n">${lv.all.n}</td>${lvRow("", lv.all)}</tr>
-    ${capS ? `<tr class="cur"><td><b>Indeks wchodzi w KAPITULACJĘ, inny jest w hossie</b> (DD &gt; −5%)<br><span class="note">od 2006, kupno w dniu wejścia w Kapitulację</span></td><td class="n">${capS["250"].n}</td>
+    ${capS ? `<tr class="cur"><td><b>Indeks wchodzi w KAPITULACJĘ, inny jest w hossie</b> (DD &gt; −5%)<br><span class="note">od 2006, kupno w dniu wejścia w Kapitulację · ${capS["60"].events} niezależnych zdarzeń</span></td><td class="n">${capS["60"].n} par</td>
       ${["60", "120", "250"].map(k => capS[k].n ? `<td class="n">${pct(capS[k].L_med, 1, true)} / ${pct(capS[k].O_med, 1, true)}<br><span style="color:${capS[k].rel_med > 0 ? "var(--past)" : "var(--zone)"}">${pct(capS[k].rel_med, 1, true)} · lider lepszy ${pct(capS[k].lead_wins, 0)}</span><br><span class="note">% zysk: ${pct(capS[k].L_win, 0)} / ${pct(capS[k].O_win, 0)}</span></td>` : "<td>—</td>").join("")}</tr>` : ""}
   </table>
   <div class="note">Uwaga na małą próbę i jeden gigantyczny wyjątek: po pęknięciu bańki dot-com (2000) kupowanie lidera (Nasdaq) było katastrofą przez lata. Kiedy lider spada z powodu przewartościowania, a nie paniki, „odbicie lidera” nie jest pewnikiem. Szczegóły każdego zdarzenia niżej.</div></div>

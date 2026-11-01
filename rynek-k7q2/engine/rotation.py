@@ -164,7 +164,8 @@ def capitulation_vs_calm(frames):
     summ = {}
     for h in H:
         rel = [r[f"rel{h}"] for r in rows if r[f"rel{h}"] is not None]
-        summ[str(h)] = {"n": len(rel), "rel_med": _f(np.median(rel)) if rel else None,
+        ev_n = len({(r["date"], r["L"]) for r in rows if r[f"rel{h}"] is not None})
+        summ[str(h)] = {"n": len(rel), "events": ev_n, "rel_med": _f(np.median(rel)) if rel else None,
                         "lead_wins": _f(np.mean([x > 0 for x in rel])) if rel else None,
                         "L_med": _f(np.median([r[f"rL{h}"] for r in rows if r[f"rL{h}"] is not None])) if rel else None,
                         "O_med": _f(np.median([r[f"rO{h}"] for r in rows if r[f"rO{h}"] is not None])) if rel else None,
@@ -230,5 +231,5 @@ def conclusion(o):
             L.append(f"Zdarzenia {lab} ({g['n']}): kupno LIDERA spadków w dniu jego −10% vs kupno najsilniejszego indeksu — po 250 sesjach mediana różnicy {pp(g['250']['rel_med'])}, lider wygrał w {p(g['250']['lead_wins'])} przypadków.")
     if cap and cap["summary"]["250"]["n"]:
         s = cap["summary"]
-        L.append(f"Od 2006: gdy indeks wchodził w KAPITULACJĘ, a inny był w hossie (n={s['250']['n']}): po 60 sesjach lider vs spokojny {pp(s['60']['rel_med'])} (lider lepszy w {p(s['60']['lead_wins'])}), po 250 sesjach {pp(s['250']['rel_med'])} ({p(s['250']['lead_wins'])}).")
+        L.append(f"Od 2006: gdy indeks wchodził w KAPITULACJĘ, a inny był w hossie ({s['60']['events']} niezależnych zdarzeń, {s['60']['n']} par — za mało na pewne wnioski): po 60 sesjach lider vs spokojny {pp(s['60']['rel_med'])} (lider lepszy w {p(s['60']['lead_wins'])}), po 250 sesjach {pp(s['250']['rel_med'])} ({p(s['250']['lead_wins'])}).")
     return L
