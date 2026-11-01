@@ -47,7 +47,9 @@ def trough_detail(d, seg, complete):
     p4w = win.index[win["phase"] == 4]
     ph = int(row["phase"]) if pd.notna(row["phase"]) else None
     # Eskalacja w dniu dna jest niemal automatyczna (cena przy 10d dołku), więc liczy się dopiero Kapitulacja
-    if len(p4w):
+    if not complete:
+        verdict = "TRWA"
+    elif len(p4w):
         verdict = "KAPITULACJA"
     elif ph == 6:
         verdict = "BESSA"

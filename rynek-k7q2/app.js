@@ -346,7 +346,7 @@ function troughTable(x) {
 
 /* ---------------- SPRAWDZALNOŚĆ ---------------- */
 let CK = "NDX", CKT = null;
-const VCOL = { "KAPITULACJA": "var(--past)", "TYLKO ESKALACJA": "var(--approach)", "BESSA": "#c4553f", "PRZEGAPIONE": "var(--zone)" };
+const VCOL = { "KAPITULACJA": "var(--past)", "TYLKO ESKALACJA": "var(--approach)", "BESSA": "#c4553f", "PRZEGAPIONE": "var(--zone)", "TRWA": "var(--muted)" };
 const MCOL = { good: "var(--past)", weak: "var(--approach)", bad: "var(--zone)", na: "var(--muted)" };
 function cnt(c, p, best) {
   if (!c || !c[p]) return "—";
