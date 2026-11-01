@@ -93,6 +93,28 @@ for r in cx:
     w = raw.iloc[max(0, i - 3): i + 4]
     L.append(f"| {r[2]} | {w['^VIX'].max():.1f} | {w['^VXN'].max():.1f} |")
 
+# 2b) Korekty od 52-tygodniowego szczytu (inna definicja — używana m.in. w mediach)
+def corr52(s, thr=-0.10, since="2015-06-01"):
+    s = s.dropna()
+    hi = s.rolling(252, min_periods=1).max()
+    ep = (s >= hi).cumsum()
+    out = []
+    for e, seg in s.groupby(ep):
+        dd = seg / seg.iloc[0] - 1
+        if dd.min() <= thr and seg.index[0] >= pd.Timestamp(since):
+            t = seg.idxmin()
+            out.append((seg.index[0].date(), round(float(seg.iloc[0]), 2), t.date(), round(float(seg.min()), 2),
+                        round(float(dd.min()) * 100, 1), (t - seg.index[0]).days, "trwa" if seg.index[-1] == s.index[-1] else ""))
+    return out
+L += ["", "## 2b. Korekty Nasdaq Composite ≥10% od 52-tygodniowego szczytu (od 2015)", "",
+      "| Szczyt | Zamknięcie | Dno | Zamknięcie | Spadek % | Dni | |", "|---|---|---|---|---|---|---|"]
+for r in corr52(raw["^IXIC"]):
+    L.append("| " + " | ".join(str(x) for x in r) + " |")
+L += ["", "Dodatkowe punkty:", f"- VIX zamknięcie 2022-10-12: {close('^VIX', '2022-10-12')}; max VIX ±3 sesje: {raw['^VIX'].loc['2022-10-07':'2022-10-17'].max():.2f}",
+      f"- VIX 2020-03-23: {close('^VIX', '2020-03-23')}; VIX 2023-10-26 ±3 max: {raw['^VIX'].loc['2023-10-20':'2023-11-01'].max():.2f}",
+      f"- NDX zamknięcie 2026-07-29: {close('^NDX', '2026-07-29')}; NDX 2026-03-27: {close('^NDX', '2026-03-27')}",
+      f"- Composite max zamknięcie 2026-06: {raw['^IXIC'].loc['2026-06-01':'2026-06-30'].max():.2f} ({raw['^IXIC'].loc['2026-06-01':'2026-06-30'].idxmax().date()})"]
+
 # 3) Zgodność silnika: drawdown dziś i lista korekt
 L += ["", "## 3. Zgodność z silnikiem (data.json) — przeliczenie niezależne", "", "| | Test | Niezależnie | Silnik |", "|---|---|---|---|"]
 M = {"SPX": "^GSPC", "NDX": "^NDX", "RUT": "^RUT", "DJI": "^DJI"}
