@@ -39,6 +39,23 @@ def fetch_yahoo(tickers=None, retries=3):
     raise RuntimeError(f"Yahoo download failed: {last}")
 
 
+def fetch_long(start="1985-01-01", retries=3):
+    """Długa historia samych indeksów (do analizy Nasdaq vs szeroki rynek)."""
+    import yfinance as yf
+    tick = ["^NDX", "^GSPC", "^DJI", "^RUT", "XLK", "XLF", "XLE", "XLV", "XLY", "XLP", "XLI", "XLU", "XLB"]
+    for i in range(retries):
+        try:
+            raw = yf.download(tick, start=start, auto_adjust=True, progress=False, threads=True)
+            df = raw["Close"].dropna(how="all")
+            df.index = pd.to_datetime(df.index).tz_localize(None)
+            if len(df) > 5000:
+                return df
+        except Exception:  # noqa
+            pass
+        time.sleep(5 * (i + 1))
+    return None
+
+
 def fetch_fred(series="BAMLH0A0HYM2"):
     try:
         r = requests.get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}",

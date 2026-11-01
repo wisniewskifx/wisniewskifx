@@ -77,6 +77,7 @@ def trough_detail(d, seg, complete):
         "rsi_min_win": _f(win["rsi"].min(), 1), "credit_20d": _f(row["credit_20d"]),
         "oas_20d": _f(row["oas_20d"], 2), "breadth_20d": _f(row["breadth_20d"]),
         "stress_max_win": _f(win["stress"].max(), 1), "bottom": _f(row["bottom_score"], 1),
+        "bottom2": _f(row.get("bottom_v2"), 1),
         "bottom_base": _f(row["bottom_base"], 1),
         "p5_lag": int(d.index.get_loc(p5[0]) - i) if len(p5) else None,
         "p5_vs_low": _f(d.at[p5[0], "close"] / seg["close"].min() - 1) if len(p5) else None,
@@ -90,6 +91,11 @@ def trough_detail(d, seg, complete):
 def signal_stats(d):
     """Jakość sygnałów faz 4 i 5 na całej historii (zakończone epizody)."""
     out = {}
+    a = d[d["fwd_ret60"].notna() & d["phase"].notna()]
+    if len(a):
+        out["all"] = {"signals": int(len(a)), "further_med": None, "within3": None, "deeper10": None,
+                      "ret20_med": _f(a["fwd_ret20"].median()), "ret60_med": _f(a["fwd_ret60"].median()),
+                      "win60": _f((a["fwd_ret60"] > 0).mean())}
     b = d[(d["dd"] <= -0.10) & d["ep_complete"] & d["phase"].notna()]
     if len(b):
         out["base"] = {"signals": int(len(b)), "further_med": _f(b["further"].median()),
@@ -145,3 +151,28 @@ def build(d, val):
             "phase_at": {SHORT[p]: sum(t["phase"] == p for t in done) for p in range(1, 7)},
         }
     return {"troughs": tr, "summary": summ, "signals": signal_stats(d), "model": model_verdict(val)}
+
+
+def conclusions(name, v):
+    """Wnioski liczone automatycznie z danych sprawdzalności (zmieniają się razem z danymi)."""
+    s, g = v.get("summary"), v.get("signals") or {}
+    if not s:
+        return []
+    p = lambda x: "—" if x is None else f"{x * 100:.0f}%"
+    pp = lambda x: "—" if x is None else f"{x * 100:+.1f}%"
+    L = []
+    base, al, k4, k5 = g.get("base"), g.get("all"), g.get("4"), g.get("5")
+    if base and al:
+        L.append(f"Kupno w dowolnym dniu spadku ≥10%: zysk po 60 sesjach w {p(base['win60'])} przypadków, mediana {pp(base['ret60_med'])} "
+                 f"(dowolny dzień w ogóle: {p(al['win60'])}, {pp(al['ret60_med'])}). To jest główna przewaga: kupowanie korekt.")
+    L.append(f"{s['n']} dołków ≥10%: w {p(s['hit'])} dno wypadło w oknie Kapitulacji (±5 sesji). "
+             f"Bez paniki (tylko Eskalacja/Bessa): {p(s['esc_only'])}. Przegapione: {p(s['missed'])}.")
+    if k4 and base:
+        better = (k4["ret60_med"] or 0) > (base["ret60_med"] or 0)
+        L.append(f"Wejście w Kapitulację: mediana zwrotu 60 sesji {pp(k4['ret60_med'])} vs {pp(base['ret60_med'])} dla losowego dnia spadku — "
+                 + ("lepiej od przypadku." if better else "nie lepiej od przypadku. Kapitulacja to miejsce dna, nie gwarancja lepszego wyniku (w bessie bywa kilka).")
+                 + f" Ryzyko >10% niżej: {p(k4['deeper10'])} vs {p(base['deeper10'])}.")
+    if k5 and base:
+        L.append(f"„Dno zaliczone”: ryzyko >10% niżej {p(k5['deeper10'])} vs {p(base['deeper10'])}, zysk po 60 sesjach {p(k5['win60'])} vs {p(base['win60'])}. "
+                 f"Sygnał przychodzi z opóźnieniem (mediana {s['p5_lag_med'] if s['p5_lag_med'] is not None else '—'} sesji, {pp(s['p5_slip_med'])} nad dołkiem) i nie po każdym dnie ({p(s['p5_found'])}).")
+    return L

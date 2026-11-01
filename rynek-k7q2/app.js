@@ -32,6 +32,8 @@ const LAYOUT = (extra = {}) => Object.assign({
 }, extra);
 const CFG = { displayModeBar: false, responsive: true };
 const plot = (id, traces, layout) => Plotly.newPlot(id, traces, LAYOUT(layout), CFG);
+const BS = () => D.models && D.models.bottom && D.models.bottom.pass;
+const FC = () => D.models && D.models.forecast && D.models.forecast.pass;
 
 /* ---------------- boot ---------------- */
 async function load(refresh = false) {
@@ -41,7 +43,7 @@ async function load(refresh = false) {
   D = nd;
   $("#updated").innerHTML = `Aktualizacja: ${D.generated} · dane do ${D.indices[ORDER.find(k => D.indices[k])].last_date}` +
     (D.synthetic ? '<span class="badge-syn">DANE TESTOWE</span>' : "");
-  const tabs = [["USA", "🇺🇸 USA"], ...ORDER.filter(k => D.indices[k]).map(k => [k, D.indices[k].name]), ["CHECK", "✓ Sprawdzalność"], ["META", "Metodologia"]];
+  const tabs = [["USA", "🇺🇸 USA"], ...ORDER.filter(k => D.indices[k]).map(k => [k, D.indices[k].name]), ["LEAD", "Liderzy spadków"], ["CHECK", "✓ Sprawdzalność"], ["META", "Metodologia"]];
   $("#tabs").innerHTML = tabs.map(([k, n]) => {
     const c = D.indices[k] ? D.indices[k].phase.color : (k === "USA" ? D.usa.consensus.color : null);
     return `<button data-t="${k}">${c ? `<span class="dot" style="background:${c}"></span>` : ""}${n}</button>`;
@@ -51,7 +53,7 @@ async function load(refresh = false) {
 }
 window.addEventListener("hashchange", () => { const t = location.hash.slice(1); if (D && t && t !== TAB) go(t); });
 function go(t, keepScroll = false) {
-  if (!(t === "USA" || t === "META" || t === "CHECK" || (D.indices && D.indices[t]))) t = "USA";
+  if (!(t === "USA" || t === "META" || t === "CHECK" || t === "LEAD" || (D.indices && D.indices[t]))) t = "USA";
   TAB = t;
   if (location.hash.slice(1) !== t) history.replaceState(null, "", "#" + t);
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
@@ -59,6 +61,7 @@ function go(t, keepScroll = false) {
   if (t === "USA") renderUSA();
   else if (t === "META") renderMeta();
   else if (t === "CHECK") renderCheck();
+  else if (t === "LEAD") renderLead();
   else renderIndex(D.indices[t]);
 }
 
@@ -82,13 +85,13 @@ function renderUSA() {
     ${kpi("Kredyt HYG/IEF 20d", pct(u.credit_20d, 1, true), u.credit_20d <= -0.025 ? "stres kredytowy" : "spokojnie")}
     ${kpi("HY OAS", u.oas == null ? "—" : fmt(u.oas, 2) + "%", u.oas_20d == null ? "" : (u.oas_20d > 0 ? "+" : "") + fmt(u.oas_20d, 2) + " pp / 20 sesji")}
     ${kpi("Stress USA", fmt(u.stress, 0) + "/100", `${arrow(u.stress_d10, false, 1)} ${fmt(u.stress_d10, 1)} vs śr. 10d`)}
-    ${kpi("Bottom Score USA", u.bottom == null ? "—" : fmt(u.bottom, 0) + "/100", "P(dno blisko), średnia ważona")}
+    ${BS() ? kpi("Bottom Score USA", u.bottom == null ? "—" : fmt(u.bottom, 0) + "/100", "P(dno blisko), średnia ważona") : ""}
     ${fg ? kpi("CNN Fear & Greed", fg.score, `${fg.rating} · tydz. temu ${fg.prev_week} · mies. ${fg.prev_month}`) : ""}
   </div>
   <div class="grid g2" style="margin-top:14px">
     <div class="card"><h3>Drawdown od rekordu — 3 lata</h3><div id="c_dd" class="chart"></div></div>
-    <div class="card"><h3>Bottom Score — ostatnie 120 sesji</h3><div id="c_bs" class="chart"></div>
-      <div class="note">Bottom Score = prawdopodobieństwo (z analogów), że do końca korekty cena nie spadnie już więcej niż 3%. Rośnie → zbliżamy się do dna / dno za nami.</div></div>
+    ${BS() ? `<div class="card"><h3>Bottom Score — ostatnie 120 sesji</h3><div id="c_bs" class="chart"></div>
+      <div class="note">Bottom Score = prawdopodobieństwo (z analogów), że do końca korekty cena nie spadnie już więcej niż 3%. Rośnie → zbliżamy się do dna / dno za nami.</div></div>` : `<div class="card"><h3>Stress — ostatnie 120 sesji</h3><div id="c_bs" class="chart"></div><div class="note">Stress = ile strachu jest teraz na tle historii (0–100).</div></div>`}
   </div>
   ${fg && fg.hist && fg.hist.length ? `<div class="card" style="margin-top:14px"><h3>CNN Fear & Greed — rok</h3><div id="c_fg" class="chart sm"></div></div>` : ""}
   `;
@@ -99,7 +102,7 @@ function renderUSA() {
   plot("c_dd", ks.map(k => ({ x: D.indices[k].chart.d, y: D.indices[k].chart.dd, name: D.indices[k].name, type: "scatter", mode: "lines",
     line: { color: SERIES[k], width: 2 }, hovertemplate: "%{y:.1%}" })),
     { yaxis: { tickformat: ".0%", gridcolor: "#1f242b" }, shapes: [-0.1, -0.2].map(y => hline(y, "#3a404a")) });
-  plot("c_bs", ks.map(k => { const c = D.indices[k].chart, n = c.d.length; return { x: c.d.slice(n - 120), y: c.bottom.slice(n - 120), name: D.indices[k].name,
+  plot("c_bs", ks.map(k => { const c = D.indices[k].chart, n = c.d.length, ser = BS() ? c.bottom : c.stress; return { x: c.d.slice(n - 120), y: ser.slice(n - 120), name: D.indices[k].name,
     type: "scatter", mode: "lines", connectgaps: false, line: { color: SERIES[k], width: 2 }, hovertemplate: "%{y:.0f}" }; }),
     { yaxis: { range: [0, 100], gridcolor: "#1f242b" }, shapes: [hline(50, "#3a404a"), hline(70, "#2fb36b55")] });
   if (fg && fg.hist && fg.hist.length) plot("c_fg", [{ x: fg.hist.map(p => p[0]), y: fg.hist.map(p => p[1]), type: "scatter", mode: "lines",
@@ -116,10 +119,10 @@ function tileHTML(k) {
     <div style="display:flex;justify-content:space-between;align-items:center"><span class="name">${x.name}</span>${phasePill(p)}</div>
     <div class="kpi"><div class="val">${fmt(x.close, 0)}</div>
     <div class="meta"><span class="${x.chg1d >= 0 ? "up" : "down"}">${pct(x.chg1d, 2, true)}</span> · drawdown <b>${pct(x.dd)}</b> · ${x.days_from_peak} sesji</div></div>
-    <div style="margin-top:10px;font-size:12px;color:var(--muted)">Bottom Score ${b == null ? "—" : `<b class="mono" style="color:var(--text)">${fmt(b, 0)}</b>/100 ${arrow(x.bottom_d10, false, 2)} ${x.bottom_d10 == null ? "" : fmt(x.bottom_d10, 0) + " vs 10d"}`}</div>
-    <div class="bar"><i style="width:${b || 0}%;background:${b >= 70 ? "var(--past)" : b >= 50 ? "var(--approach)" : "#5b6170"}"></i></div>
+    ${BS() ? `<div style="margin-top:10px;font-size:12px;color:var(--muted)">Bottom Score ${b == null ? "—" : `<b class="mono" style="color:var(--text)">${fmt(b, 0)}</b>/100 ${arrow(x.bottom_d10, false, 2)} ${x.bottom_d10 == null ? "" : fmt(x.bottom_d10, 0) + " vs 10d"}`}</div>
+    <div class="bar"><i style="width:${b || 0}%;background:${b >= 70 ? "var(--past)" : b >= 50 ? "var(--approach)" : "#5b6170"}"></i></div>` : ""}
     <div style="font-size:12px;color:var(--muted);margin-top:8px">Stress <b class="mono" style="color:var(--text)">${fmt(x.stress, 0)}</b> ${arrow(x.stress_d10, false, 1)} · ${x.vol_name} <b class="mono" style="color:var(--text)">${fmt(x.vol, 1)}</b></div>
-    <div style="font-size:12.5px;margin-top:8px">${f ? `Dno: <b class="mono">${fmt(f.trough_med, 0)}</b> (${pct(f.depth_med)}) za ~${fmt(f.days_med)} sesji · P(zaliczone) ${pct(f.p_bottomed, 0)}` : '<span class="flat">Brak aktywnej korekty</span>'}</div>
+    <div style="font-size:12.5px;margin-top:8px">${f ? `Dno: <b class="mono">${fmt(f.trough_med, 0)}</b> (${pct(f.depth_med)}) za ~${fmt(f.days_med)} sesji · P(zaliczone) ${pct(f.p_bottomed, 0)}` : x.naive ? `Historycznie od ${pct(x.naive.dd_low)}: mediana dna <b class="mono">${pct(x.naive.p50)}</b> (${fmt(x.naive.lvl_p50, 0)}) · n=${x.naive.n}` : '<span class="flat">Brak aktywnej korekty</span>'}</div>
   </div>`;
 }
 
@@ -145,19 +148,20 @@ function renderIndex(x) {
   <div class="grid g6" style="margin-top:14px">
     ${kpi("Kurs", fmt(x.close, 0), `<span class="${x.chg1d >= 0 ? "up" : "down"}">${pct(x.chg1d, 2, true)}</span> · rekord ${fmt(x.peak, 0)}`)}
     ${kpi("Drawdown", pct(x.dd), `${x.days_from_peak} sesji od szczytu`)}
-    ${kpi("Bottom Score", x.bottom == null ? "—" : fmt(x.bottom, 0) + "/100",
-      x.bottom == null ? "aktywny od −5%" : `3d ${arrow(x.bottom_d3, false, 1)} ${fmt(x.bottom_d3, 1)} · 10d ${arrow(x.bottom_d10, false, 1)} ${fmt(x.bottom_d10, 1)} · base ${fmt(x.bottom_base, 0)}`)}
+    ${BS() ? kpi("Bottom Score", x.bottom == null ? "—" : fmt(x.bottom, 0) + "/100",
+      x.bottom == null ? "aktywny od −5%" : `3d ${arrow(x.bottom_d3, false, 1)} ${fmt(x.bottom_d3, 1)} · 10d ${arrow(x.bottom_d10, false, 1)} ${fmt(x.bottom_d10, 1)}`) : ""}
     ${kpi("Stress", fmt(x.stress, 0) + "/100", `3d ${arrow(x.stress_d3, false, 1)} ${fmt(x.stress_d3, 1)} · 10d ${arrow(x.stress_d10, false, 1)} ${fmt(x.stress_d10, 1)}`)}
-    ${kpi("P(dno już zaliczone)", f ? pct(f.p_bottomed, 0) : "—", f ? `P(>10% niżej) ${pct(f.p_deep, 0)} · P(bessa) ${pct(f.p_bear, 0)}` : "")}
+    ${f ? kpi("P(dno już zaliczone)", pct(f.p_bottomed, 0), `P(>10% niżej) ${pct(f.p_deep, 0)} · P(bessa) ${pct(f.p_bear, 0)}`)
+        : x.naive ? kpi("Historycznie: głębiej niż −20%", pct(x.naive.p_beyond["-20"], 0), `−15%: ${pct(x.naive.p_beyond["-15"], 0)} · −25%: ${pct(x.naive.p_beyond["-25"], 0)} · −30%: ${pct(x.naive.p_beyond["-30"], 0)}`) : ""}
     ${kpi(x.vol_name + (x.vol_fallback ? " (VIX)" : ""), fmt(x.vol, 1), "indeks zmienności tego rynku")}
   </div>
 
-  <div class="section">Prognoza dna <small>analogi historyczne + Monte Carlo (bootstrap blokowy), shrinkage do base rate</small></div>
-  ${f ? forecastHTML(x) : `<div class="card note">Brak aktywnej korekty (drawdown płytszy niż −5%). Prognoza włączy się automatycznie.</div>`}
+  ${f ? `<div class="section">Prognoza dna <small>analogi historyczne + Monte Carlo — przeszła test walk-forward</small></div>${forecastHTML(x)}`
+     : `<div class="section">Gdzie kończyły się takie korekty <small>historia tego indeksu — fakty, nie model</small></div>${naiveHTML(x)}`}
 
-  <div class="section">Bottom Score i Stress na tle faz <small>tło = faza rynku</small></div>
+  <div class="section">${BS() ? "Bottom Score i Stress" : "Stress"} na tle faz <small>tło = faza rynku</small></div>
   <div class="card"><div id="c_tl" class="chart"></div>
-  <div class="note">Bottom Score (zielony) = P(dno blisko) liczone walk-forward — każdy dzień tylko z danymi dostępnymi wtedy. Stress (czerwony) = ile strachu teraz. Klasyczny dołek: Stress szczytuje i zaczyna spadać, Bottom Score rośnie.</div></div>
+  <div class="note">${BS() ? "Bottom Score (zielony) = P(dno blisko), walk-forward. " : ""}Stress (czerwony) = ile strachu teraz na tle historii. Klasyczny dołek: Stress szczytuje w Kapitulacji (czerwone tło), potem spada.</div></div>
 
   <div class="section">Wskaźniki <small>wartość · percentyl historii · momentum vs średnia 3d i 10d</small></div>
   <div class="grid g3">${x.cards.map((c, i) => cardHTML(c, i)).join("")}</div>
@@ -175,12 +179,37 @@ function renderIndex(x) {
   </div>`;
   $("#app").innerHTML = h;
 
-  if (f) drawForecast(x);
+  if (f) drawForecast(x); else drawNaive(x);
   drawTimeline(x);
   x.cards.forEach((c, i) => drawSpark(c, i));
   plot("c_ddh", [{ x: x.dd_hist.d, y: x.dd_hist.dd, type: "scatter", mode: "lines", fill: "tozeroy",
     line: { color: "#e5484d", width: 1.5 }, fillcolor: "rgba(229,72,77,.15)", hovertemplate: "%{y:.1%}", name: "Drawdown" }],
     { showlegend: false, yaxis: { tickformat: ".0%", gridcolor: "#1f242b" }, shapes: [-0.1, -0.2].map(y => hline(y, "#3a404a")) });
+}
+
+function naiveHTML(x) {
+  const v = x.naive;
+  if (!v) return `<div class="card note">Brak aktywnej korekty (spadek płytszy niż −5%). Sekcja włączy się automatycznie.</div>`;
+  return `<div class="grid g2"><div class="card">
+    <h3>Korekty ${x.name}, które doszły do ${pct(v.dd_low)} (n=${v.n})</h3>
+    <div class="big-fc">${pct(v.p50)} <span style="font-size:20px;color:var(--text-2)">→ ${fmt(v.lvl_p50, 0)}</span></div>
+    <div style="margin:6px 0 12px;color:var(--text-2)">mediana końcowej głębokości · mediana <b class="mono">${fmt(v.days_med)}</b> sesji od tego poziomu do dna (IQR ${fmt(v.days_p25)}–${fmt(v.days_p75)})</div>
+    <table><tr><th>Percentyl historii</th><th class="n">Głębokość</th><th class="n">Poziom</th></tr>
+      <tr><td>Płytko (90.)</td><td class="n">${pct(v.p90)}</td><td class="n">${fmt(v.lvl_p90, 0)}</td></tr>
+      <tr><td>Górny kwartyl (75.)</td><td class="n">${pct(v.p75)}</td><td class="n">${fmt(v.lvl_p75, 0)}</td></tr>
+      <tr><td><b>Mediana</b></td><td class="n"><b>${pct(v.p50)}</b></td><td class="n"><b>${fmt(v.lvl_p50, 0)}</b></td></tr>
+      <tr><td>Dolny kwartyl (25.)</td><td class="n">${pct(v.p25)}</td><td class="n">${fmt(v.lvl_p25, 0)}</td></tr>
+      <tr><td>Głęboko (10.)</td><td class="n">${pct(v.p10)}</td><td class="n">${fmt(v.lvl_p10, 0)}</td></tr></table>
+    <div class="note">Prognoza z analogów nie przeszła testu walk-forward (zakładka Sprawdzalność), więc pokazuję czystą historię: jak kończyły się wszystkie wcześniejsze korekty, które doszły co najmniej tak głęboko jak obecna.</div></div>
+    <div class="card"><h3>Szansa, że korekta pójdzie głębiej niż…</h3><div id="c_naive" class="chart sm"></div>
+    <div class="note">Na podstawie ${v.n} zakończonych korekt tego indeksu od 2004 roku.</div></div></div>`;
+}
+function drawNaive(x) {
+  const v = x.naive; if (!v) return;
+  const ks = ["-15", "-20", "-25", "-30"];
+  plot("c_naive", [{ x: ks.map(k => k + "%"), y: ks.map(k => v.p_beyond[k]), type: "bar", marker: { color: ["#e0a019", "#e5484d", "#b3343a", "#7f1d1d"] },
+    text: ks.map(k => pct(v.p_beyond[k], 0)), textposition: "outside", hovertemplate: "%{x}: %{y:.0%}<extra></extra>" }],
+    { showlegend: false, hovermode: "closest", yaxis: { tickformat: ".0%", range: [0, 1], gridcolor: "#1f242b" } });
 }
 
 function forecastHTML(x) {
@@ -252,7 +281,7 @@ function drawTimeline(x) {
     }
   }
   plot("c_tl", [
-    { x: d, y: c.bottom.slice(s), name: "Bottom Score", type: "scatter", mode: "lines", line: { color: "#2fb36b", width: 2.5 }, hovertemplate: "%{y:.0f}" },
+    ...(BS() && c.bottom ? [{ x: d, y: c.bottom.slice(s), name: "Bottom Score", type: "scatter", mode: "lines", line: { color: "#2fb36b", width: 2.5 }, hovertemplate: "%{y:.0f}" }] : []),
     { x: d, y: c.stress.slice(s), name: "Stress", type: "scatter", mode: "lines", line: { color: "#e5484d", width: 2 }, hovertemplate: "%{y:.0f}" },
     { x: d, y: ph.map(v => v ? D.phases[v].short : null), name: "Faza", type: "scatter", mode: "none", hovertemplate: "%{y}", yaxis: "y2", showlegend: false },
   ], { yaxis: { range: [0, 100], gridcolor: "#1f242b" }, yaxis2: { overlaying: "y", visible: false, type: "category" }, shapes });
@@ -344,6 +373,78 @@ function troughTable(x) {
   </table></div>`;
 }
 
+/* ---------------- LIDERZY SPADKÓW ---------------- */
+let LEV = null;
+const IXC = { NDX: "#d95926", SPX: "#3987e5", DJI: "#c98500", RUT: "#199e70" };
+function renderLead() {
+  const R = D.rotation;
+  if (!R) { $("#app").innerHTML = '<div class="loading">Brak danych długiej historii (spróbuj przy następnym przeliczeniu).</div>'; return; }
+  const N = R.names, S = R.sectors, c = R.current, lv = R.leader_vs_laggard, cap = R.cap_vs_calm;
+  const done = R.events.filter(e => e.complete);
+  if (!LEV) LEV = R.events[R.events.length - 1].start;
+  const lvRow = (lab, g) => g && g.n ? ["60", "120", "250"].map(h => g[h] && g[h].n ? `<td class="n">${pct(g[h].lead_med, 1, true)} / ${pct(g[h].lag_med, 1, true)}<br><span style="color:${g[h].rel_med > 0 ? "var(--past)" : "var(--zone)"}">${pct(g[h].rel_med, 1, true)} · lider lepszy ${pct(g[h].lead_wins, 0)}</span></td>` : "<td>—</td>").join("") : "";
+  const capS = cap && cap.summary;
+  let h = `
+  <div class="hero" style="--phase-bg:#3987e533">
+    <span class="pill st-far">${R.since.slice(0, 4)}–${R.last.slice(0, 4)} · indeksy + sektory S&amp;P</span>
+    <h2>Czy korekty mają swoich liderów i co wtedy kupować?</h2>
+    <ul style="margin:8px 0 0;padding-left:18px;line-height:1.7;color:var(--text-2)">${R.conclusion.map(x => `<li>${x}</li>`).join("")}</ul>
+  </div>
+
+  <div class="section">Dziś: kto prowadzi spadki <small>drawdown od własnego rekordu</small></div>
+  <div class="grid g2">
+    <div class="card"><div id="c_now" class="chart"></div></div>
+    <div class="card"><h3>Siła Nasdaq vs S&amp;P 500 (NDX/SPX) i szerokość rynku (RSP/SPY)</h3><div id="c_rs" class="chart sm"></div><div id="c_ew" class="chart sm"></div>
+      <div class="note">NDX/SPX spada = technologia słabsza od rynku. RSP/SPY rośnie = przeciętna spółka radzi sobie lepiej niż giganci (rotacja, nie wyprzedaż wszystkiego). 20 sesji: NDX/SPX ${pct(c.rs_20d, 1, true)}, 60 sesji ${pct(c.rs_60d, 1, true)}${c.ew_60d != null ? `, RSP/SPY 60 sesji ${pct(c.ew_60d, 1, true)}` : ""}.</div></div>
+  </div>
+
+  <div class="section">Co kupować: lider spadków czy indeks, który się trzyma? <small>mediany zwrotów: lider / najsilniejszy · różnica · jak często lider wygrał</small></div>
+  <div class="card tbl"><table>
+    <tr><th>Sytuacja</th><th class="n">n</th><th class="n">60 sesji</th><th class="n">120 sesji</th><th class="n">250 sesji</th></tr>
+    <tr><td><b>Selektywna korekta</b> (lider −10%, najsilniejszy płycej niż −6%)<br><span class="note">kupno w dniu, gdy lider dotknął −10%</span></td><td class="n">${lv.selective.n}</td>${lvRow("", lv.selective)}</tr>
+    <tr><td><b>Szeroka korekta</b><br><span class="note">kupno w dniu, gdy lider dotknął −10%</span></td><td class="n">${lv.broad.n}</td>${lvRow("", lv.broad)}</tr>
+    <tr><td>Wszystkie zdarzenia</td><td class="n">${lv.all.n}</td>${lvRow("", lv.all)}</tr>
+    ${capS ? `<tr class="cur"><td><b>Indeks wchodzi w KAPITULACJĘ, inny jest w hossie</b> (DD &gt; −5%)<br><span class="note">od 2006, kupno w dniu wejścia w Kapitulację</span></td><td class="n">${capS["250"].n}</td>
+      ${["60", "120", "250"].map(k => capS[k].n ? `<td class="n">${pct(capS[k].L_med, 1, true)} / ${pct(capS[k].O_med, 1, true)}<br><span style="color:${capS[k].rel_med > 0 ? "var(--past)" : "var(--zone)"}">${pct(capS[k].rel_med, 1, true)} · lider lepszy ${pct(capS[k].lead_wins, 0)}</span><br><span class="note">% zysk: ${pct(capS[k].L_win, 0)} / ${pct(capS[k].O_win, 0)}</span></td>` : "<td>—</td>").join("")}</tr>` : ""}
+  </table>
+  <div class="note">Uwaga na małą próbę i jeden gigantyczny wyjątek: po pęknięciu bańki dot-com (2000) kupowanie lidera (Nasdaq) było katastrofą przez lata. Kiedy lider spada z powodu przewartościowania, a nie paniki, „odbicie lidera” nie jest pewnikiem. Szczegóły każdego zdarzenia niżej.</div></div>
+
+  <div class="section">Wszystkie zdarzenia od ${R.since.slice(0, 4)} <small>kliknij wiersz → ścieżki indeksów od szczytu</small></div>
+  <div class="card tbl"><table>
+    <tr><th>Start</th><th>Dno</th><th>Lider</th><th class="n">NDX</th><th class="n">SPX</th><th class="n">DJI</th><th class="n">RUT</th><th>Sektor lider</th><th>Sektor najodporniejszy</th><th>Typ</th><th class="n">Odbudowa rekordu (lata) NDX / SPX / DJI / RUT</th><th class="n">250 ses. lider vs najsilniejszy</th></tr>
+    ${[...R.events].reverse().map(e => { const r = e.recovery_years, f = e.fwd["250"] || e.fwd[250] || {};
+      const rel = f[e.leader] != null && f[e.laggard_at10] != null ? f[e.leader] - f[e.laggard_at10] : null;
+      return `<tr class="lerow ${e.start === LEV ? "cur" : ""}" data-s="${e.start}" style="cursor:pointer"><td>${e.start}</td><td>${e.trough}${e.complete ? "" : " *"}</td>
+      <td><span style="color:${IXC[e.leader]}">●</span> ${N[e.leader]}</td>
+      ${["NDX", "SPX", "DJI", "RUT"].map(k => `<td class="n" style="${k === e.leader ? "font-weight:800" : ""}">${pct(e.depth[k], 0)}</td>`).join("")}
+      <td>${e.lead_sector ? `${S[e.lead_sector]} ${pct(e.depth[e.lead_sector], 0)}` : "—"}</td><td>${e.best_sector ? `${S[e.best_sector]} ${pct(e.depth[e.best_sector], 0)}` : "—"}</td>
+      <td>${e.selective ? '<span class="pill st-approach">selektywna</span>' : '<span class="pill st-far">szeroka</span>'}</td>
+      <td class="n">${["NDX", "SPX", "DJI", "RUT"].map(k => r[k] == null ? "—" : fmt(r[k], 1)).join(" / ")}</td>
+      <td class="n" style="color:${rel == null ? "inherit" : rel > 0 ? "var(--past)" : "var(--zone)"}">${rel == null ? "—" : pct(rel, 0, true)}</td></tr>`; }).join("")}
+  </table><div class="note">Głębokości = max spadek każdego indeksu od własnego rekordu w czasie zdarzenia. Sektory dostępne od 1999. Odbudowa = lata od początku zdarzenia do powrotu indeksu na rekord sprzed zdarzenia. * = trwa.</div></div>
+  <div id="ledet"></div>`;
+  $("#app").innerHTML = h;
+  // dziś: słupki
+  const keys = ["NDX", "SPX", "DJI", "RUT", ...Object.keys(S)].filter(k => c[k] != null);
+  plot("c_now", [{ y: keys.map(k => N[k] || S[k]), x: keys.map(k => c[k]), type: "bar", orientation: "h",
+    marker: { color: keys.map(k => IXC[k] || "#5b6170") }, text: keys.map(k => pct(c[k], 1)), textposition: "inside", insidetextanchor: "start", textfont: { color: "#fff" }, hovertemplate: "%{y}: %{x:.1%}<extra></extra>" }],
+    { showlegend: false, hovermode: "closest", margin: { l: 120, r: 40, t: 10, b: 30 }, xaxis: { tickformat: ".0%", gridcolor: "#1f242b" }, yaxis: { autorange: "reversed" },
+      shapes: [{ type: "line", x0: -0.1, x1: -0.1, yref: "paper", y0: 0, y1: 1, line: { color: "#3a404a", dash: "dot" } }] });
+  plot("c_rs", [{ x: R.rs_chart.d, y: R.rs_chart.v, type: "scatter", mode: "lines", line: { color: "#d95926", width: 2 }, name: "NDX/SPX", hovertemplate: "%{y:.3f}" }], { showlegend: false, margin: { l: 52, r: 16, t: 6, b: 24 } });
+  if (R.ew_chart) plot("c_ew", [{ x: R.ew_chart.d, y: R.ew_chart.v, type: "scatter", mode: "lines", line: { color: "#3987e5", width: 2 }, name: "RSP/SPY", hovertemplate: "%{y:.3f}" }], { showlegend: false, margin: { l: 52, r: 16, t: 6, b: 24 } });
+  document.querySelectorAll(".lerow").forEach(el => el.onclick = () => { LEV = el.dataset.s; document.querySelectorAll(".lerow").forEach(r => r.classList.toggle("cur", r === el)); drawLeadDet(); });
+  drawLeadDet();
+}
+function drawLeadDet() {
+  const R = D.rotation, e = R.events.find(z => z.start === LEV); if (!e) return;
+  const N = R.names, p = e.path;
+  $("#ledet").innerHTML = `<div class="section">Zdarzenie ${e.start} <small>lider: ${N[e.leader]} · indeksy znormalizowane do 100 w dniu startu</small></div>
+    <div class="card"><div id="c_path" class="chart"></div></div>`;
+  plot("c_path", ["NDX", "SPX", "DJI", "RUT"].filter(k => p[k] && p[k].length).map(k => ({ x: p.t.map(t => t / 365.25), y: p[k], name: N[k], type: "scatter", mode: "lines",
+    line: { color: IXC[k], width: k === e.leader ? 3 : 2 }, hovertemplate: "%{y:.0f}" })),
+    { xaxis: { title: "lata od startu", gridcolor: "#1f242b" }, yaxis: { gridcolor: "#1f242b" }, shapes: [hline(100, "#3a404a")] });
+}
+
 /* ---------------- SPRAWDZALNOŚĆ ---------------- */
 let CK = "NDX", CKT = null;
 const VCOL = { "KAPITULACJA": "var(--past)", "TYLKO ESKALACJA": "var(--approach)", "BESSA": "#c4553f", "PRZEGAPIONE": "var(--zone)", "TRWA": "var(--muted)" };
@@ -380,13 +481,19 @@ function renderCheck() {
     <h2>Czy system działał w historii?</h2>
     <div class="headline">Dla każdego dołka ≥8% pokazujemy dokładnie to, co system widział <b>w dniu dna</b>: fazę, checklisty warunków (np. Kapitulacja 4/6), wartości strachu, kredytu i Bottom Score oraz po ilu sesjach przyszedł sygnał „Dno zaliczone”. Wszystko liczone przyczynowo — bez znajomości przyszłości (fazy z danych do dnia t, Bottom Score walk-forward).</div>
   </div>
+  ${testsHTML()}
   <div class="grid g4" style="margin-top:14px">${tiles}</div>
+  ${(v.conclusions || []).length ? `<div class="card" style="margin-top:14px;border-left:4px solid var(--past)"><h3>Wnioski z danych — ${x.name}</h3>
+    <ul style="margin:0;padding-left:18px;line-height:1.7">${v.conclusions.map(c => `<li>${c}</li>`).join("")}</ul>
+    <div class="note">Liczone automatycznie z historii — zmieniają się razem z danymi.</div></div>` : ""}
+  <div class="card" style="margin-top:14px;border-left:4px solid var(--approach)"><h3>Bottom line</h3>
+    <div style="font-size:14px;line-height:1.7">Przewaga matematyczna to <b>kupowanie korekt ≥10% w transzach</b>. Kapitulacja to miejsce, gdzie historycznie powstaje większość den — dlatego tam największa transza — ale sama w sobie nie gwarantuje lepszego wyniku niż zakup w innym dniu korekty (w bessie kapitulacji bywa kilka). <b>Nie czekaj wyłącznie na panikę</b>: część den przychodzi bez niej (np. NDX lipiec 2026). Zawsze licz się z tym, że może zejść niżej.</div></div>
 
   <div class="section">${x.name}: dołki i stan systemu w dniu dna <small>kliknij wiersz, aby zobaczyć szczegóły</small></div>
   <div class="card tbl"><table>
     <tr><th>Szczyt</th><th>Dno</th><th class="n">Głęb.</th><th class="n">Sesji</th><th>Faza w dniu dna</th><th>Werdykt</th>
       <th>Kapitulacja</th><th>Dno zal.</th><th>Eskalacja</th><th>Bessa</th>
-      <th class="n">Max ${x.vol_name} (pct)</th><th class="n">Max VIX/VIX3M</th><th class="n">Max VVIX</th><th class="n">Min RSI</th><th class="n">Kredyt 20d</th><th class="n">Bottom / base</th><th class="n">Sygnał 5</th></tr>
+      <th class="n">Max ${x.vol_name} (pct)</th><th class="n">Max VIX/VIX3M</th><th class="n">Max VVIX</th><th class="n">Min RSI</th><th class="n">Kredyt 20d</th>${BS() ? '<th class="n">Bottom Score</th>' : ""}<th class="n">Sygnał 5</th></tr>
     ${rows.map(t => `<tr class="ckrow ${t.trough === CKT ? "cur" : ""}" data-t="${t.trough}" style="cursor:pointer">
       <td>${t.peak}</td><td>${t.trough}${t.complete ? "" : " *"}</td><td class="n">${pct(t.depth)}</td><td class="n">${t.days}</td>
       <td>${t.phase ? `<span style="color:${D.phases[t.phase].color}">●</span> ${D.phases[t.phase].short}` : "—"}${t.phase_raw && t.phase_raw !== t.phase ? ` <span style="color:var(--muted);font-size:11px">(dziś: ${D.phases[t.phase_raw].short})</span>` : ""}</td>
@@ -396,21 +503,25 @@ function renderCheck() {
       <td class="n" style="color:${t.term_max_win >= 1 ? "var(--zone)" : "inherit"}">${fmt(t.term_max_win, 2)}</td>
       <td class="n">${fmt(t.vvix_max_win, 0)}</td><td class="n" style="color:${t.rsi_min_win <= 30 ? "var(--zone)" : "inherit"}">${fmt(t.rsi_min_win, 0)}</td>
       <td class="n" style="color:${t.credit_20d <= -0.025 ? "var(--risk)" : "inherit"}">${pct(t.credit_20d, 1, true)}</td>
-      <td class="n">${t.bottom == null ? "—" : fmt(t.bottom, 0) + " / " + fmt(t.bottom_base, 0)}</td>
+      ${BS() ? `<td class="n">${t.bottom2 == null ? "—" : fmt(t.bottom2, 0)}</td>` : ""}
       <td class="n">${t.p5_lag == null ? "brak" : `${t.p5_lag} ses. ${pct(t.p5_vs_low, 1, true)}`}</td></tr>`).join("")}
   </table>
   <div class="note">Liczby x/n = ile warunków danej fazy było spełnionych w dniu dna; „✓” = spełnione warunki obowiązkowe (faza mogła się włączyć). Max ±5 = najlepszy wynik Kapitulacji w oknie 5 sesji wokół dna. Max wartości liczone w oknie ±5 sesji. Werdykt: KAPITULACJA = w ±5 sesji od dna system pokazał Kapitulację (sygnał T2 trafił w dno). TYLKO ESKALACJA = dno bez paniki, system dawał tylko T1 (to słabszy sygnał — w dniu dna cena i tak jest przy 10-dniowym dołku). BESSA = dno w fazie Bessy. PRZEGAPIONE = system pokazywał Hossę/Pullback. * = trwająca korekta.</div></div>
 
   <div id="ckdet"></div>
 
+  <div class="section">Mapa dołków: wszystkie 4 indeksy naraz <small>każde dno ≥10% od 2006; w komórce: głębokość · Kapitulacja w dniu dna (max ±5) · werdykt</small></div>
+  <div class="card tbl">${mapHTML()}</div>
+
   <div class="section">Jakość sygnałów faz <small>co działo się po wejściu w fazę vs losowy dzień przy spadku ≥10%</small></div>
   <div class="card tbl"><table>
     <tr><th>Sygnał</th><th class="n">Ile razy</th><th class="n">Mediana dalszego spadku</th><th class="n">Dno w 3%</th><th class="n">&gt;10% niżej</th><th class="n">Zwrot 20 ses.</th><th class="n">Zwrot 60 ses.</th><th class="n">% zysk po 60</th></tr>
+    ${sigRow("Dowolny dzień w historii", sig.all)}
     ${sigRow("Losowy dzień przy DD ≤ −10% (punkt odniesienia)", sig.base)}
     ${sigRow("Wejście w 3. ESKALACJA", sig["3"], D.phases[3].color)}${sigRow("Wejście w 4. KAPITULACJA", sig["4"], D.phases[4].color)}${sigRow("Wejście w 5. DNO ZALICZONE", sig["5"], D.phases[5].color)}
   </table><div class="note">Sygnał ma wartość, jeśli po nim dalszy spadek jest mniejszy, a zwroty i % zysku wyższe niż w wierszu odniesienia.</div></div>
 
-  <div class="section">Kalibracja Bottom Score <small>walk-forward</small></div>
+  <div class="section">Kalibracja Bottom Score (stara wersja, k-NN) <small>walk-forward — model usunięty, pokazany dla przejrzystości</small></div>
   <div class="grid g2"><div class="card"><div id="c_cal2" class="chart"></div></div>
   <div class="card" style="font-size:13.5px;line-height:1.6">
     <h3>Jak to czytać</h3>
@@ -430,6 +541,33 @@ function renderCheck() {
         hovertemplate: "model %{x:.0%} → realnie %{y:.0%} (%{text})<extra></extra>" }],
       { hovermode: "closest", xaxis: { range: [0, 1], tickformat: ".0%", gridcolor: "#1f242b", title: "model mówił" }, yaxis: { range: [0, 1], tickformat: ".0%", gridcolor: "#1f242b", title: "zrealizowane" } });
   }
+}
+function testsHTML() {
+  const m = D.models; if (!m) return "";
+  const ks = ORDER.filter(k => D.indices[k]);
+  const ok = (b) => `<b style="color:${b ? "var(--past)" : "var(--zone)"}">${b ? "ZALICZONY" : "NIEZALICZONY"}</b>`;
+  const row = (k) => { const md = D.indices[k].models || {}, v1 = md.v1, v2 = md.v2, fc = md.fc;
+    return `<tr><td>${D.indices[k].name}</td>
+      <td class="n">${v1 ? pct(v1.skill, 1, true) : "—"}</td>
+      <td class="n" style="color:${v2 && v2.skill >= .05 ? "var(--past)" : "var(--zone)"}">${v2 ? pct(v2.skill, 1, true) : "—"}</td><td>${v2 ? (v2.monotone ? "rośnie ✓" : "nie ✗") : "—"}</td>
+      <td class="n" style="color:${fc && fc.cov_analog >= .7 && fc.cov_analog <= .9 ? "var(--past)" : "var(--zone)"}">${fc ? pct(fc.cov_analog, 0) : "—"}</td>
+      <td class="n">${fc ? pct(fc.mae_analog, 1) + " / " + pct(fc.mae_naive, 1) : "—"}</td><td class="n">${fc ? pct(fc.cov_naive, 0) : "—"}</td></tr>`; };
+  return `<div class="card" style="margin-top:14px"><h3>Testy modeli (kryteria ustalone przed testem)</h3>
+    <div style="font-size:13.5px;line-height:1.7;margin-bottom:8px">
+      Bottom Score v2: ${ok(m.bottom.pass)} (${m.bottom.passed}/4) — wymóg: ${m.bottom.rule}. ${m.bottom.pass ? "Pokazywany na stronie." : "<b>Usunięty ze strony.</b>"}<br>
+      Prognoza dna z analogów: ${ok(m.forecast.pass)} (${m.forecast.passed}/4) — wymóg: ${m.forecast.rule}. ${m.forecast.pass ? "Pokazywana na stronie." : "<b>Zastąpiona tabelą historyczną.</b>"}</div>
+    <table><tr><th>Indeks</th><th class="n">Skill BS v1 (k-NN)</th><th class="n">Skill BS v2</th><th>Kalibracja v2</th><th class="n">Pokrycie 80% (analogi)</th><th class="n">Błąd mediany analogi / naiwna</th><th class="n">Pokrycie 80% (naiwna)</th></tr>
+    ${ks.map(row).join("")}</table>
+    <div class="note">Skill = poprawa Brier score względem base rate (sam drawdown). Pokrycie 80% = jak często faktyczne dno mieściło się w przedziale 10–90% prognozy (idealnie ~80%). Wszystko walk-forward.</div></div>`;
+}
+function mapHTML() {
+  const tm = D.trough_map || []; const ks = ORDER.filter(k => D.indices[k]);
+  return `<table><tr><th>Okres</th>${ks.map(k => `<th>${D.indices[k].name}</th>`).join("")}</tr>
+  ${[...tm].reverse().map(r => `<tr><td class="mono">${r.date.slice(0, 7)}</td>${ks.map(k => { const c = r.cells[k];
+    if (!c) return "<td>—</td>";
+    if (!c.trough) return `<td style="color:var(--muted)">${c.depth == null ? "—" : pct(c.depth, 0)} · bez osobnego dna</td>`;
+    return `<td><b class="mono">${pct(c.depth, 0)}</b> · <span class="mono" style="color:${c.k4best >= 4 ? "var(--zone)" : c.k4best >= 3 ? "var(--approach)" : "var(--muted)"}">K ${c.k4}/6 (${c.k4best})</span> · <span style="color:${VCOL[c.verdict] || "var(--muted)"};font-weight:700;font-size:11.5px">${c.verdict}</span></td>`; }).join("")}</tr>`).join("")}
+  </table><div class="note">K x/6 (y) = warunki Kapitulacji w dniu dna (najlepszy wynik w ±5 sesjach). „bez osobnego dna” = indeks spadał, ale nie miał w tym oknie własnego dołka ≥8% (pokazany max spadek w ±45 dniach).</div>`;
 }
 function drawCheckDetail(x) {
   const t = x.verify.troughs.find(z => z.trough === CKT);
