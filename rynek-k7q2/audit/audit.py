@@ -18,6 +18,18 @@ OUT_JS = os.path.join(HERE, "audit.json")
 T = ["^GSPC", "^NDX", "^IXIC", "^DJI", "^RUT", "^VIX", "^VXN", "^VIX3M", "^VVIX", "^RVX", "^VXD", "HYG", "IEF"]
 raw = yf.download(T, start="1985-01-01", auto_adjust=True, progress=False)["Close"]
 raw.index = pd.to_datetime(raw.index).tz_localize(None)
+import time
+for t in T:  # dociągnij pojedynczo serie, których batch nie zwrócił
+    if t not in raw or raw[t].notna().sum() < 100:
+        for _ in range(3):
+            x = yf.download(t, start="1985-01-01", auto_adjust=True, progress=False)
+            if len(x):
+                c = x["Close"]
+                c = c.iloc[:, 0] if isinstance(c, pd.DataFrame) else c
+                c.index = pd.to_datetime(c.index).tz_localize(None)
+                raw[t] = c.reindex(raw.index.union(c.index)).reindex(raw.index)
+                break
+            time.sleep(5)
 D = json.load(open(DATA, encoding="utf-8"))
 L = []
 res = {"checks": [], "fail": 0}
@@ -50,13 +62,15 @@ for t, d, v in [("^GSPC", "2009-03-09", 676.53), ("^GSPC", "2018-12-24", 2351.10
 
 
 # 2) Korekty Nasdaq Composite >=10% od rekordu (zamknięcia) — do weryfikacji tabeli z pierwszej odpowiedzi
-def corrections(s, thr=-0.10, since="2015-06-01"):
+def corrections(s, thr=-0.10, since="2015-06-01", complete_only=False):
     s = s.dropna()
     pk = s.cummax()
     ep = (s >= pk).cumsum()
     out = []
     for e, seg in s.groupby(ep):
         dd = seg / seg.iloc[0] - 1
+        if complete_only and seg.index[-1] == s.index[-1]:
+            continue
         if dd.min() <= thr and seg.index[0] >= pd.Timestamp(since):
             t = seg.idxmin()
             out.append((seg.index[0].date(), round(float(seg.iloc[0]), 2), t.date(), round(float(seg.min()), 2),
@@ -90,7 +104,7 @@ for k, t in M.items():
     ok = abs(dd - eng) < 0.002
     res["fail"] += 0 if ok else 1
     L.append(f"| {'✅' if ok else '❌'} | {k} drawdown dziś | {dd:.4f} | {eng:.4f} |")
-    ind = corrections(s, -0.10, "2004-01-01")
+    ind = corrections(s, -0.10, "2004-01-01", complete_only=True)
     eng_c = [c for c in D["indices"][k]["corrections"] if not c["ongoing"]]
     n_ok = len(ind) == len(eng_c)
     L.append(f"| {'✅' if n_ok else '❌'} | {k} liczba zakończonych korekt ≥10% od 2004 | {len(ind)} | {len(eng_c)} |")
