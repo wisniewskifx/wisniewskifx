@@ -1,0 +1,47 @@
+name: Monitor korekt
+
+on:
+  schedule:
+    - cron: "*/30 13-21 * * 1-5"   # co 30 min w trakcie sesji USA (UTC)
+    - cron: "20 21 * * 1-5"        # po zamknięciu USA: pełne przeliczenie + podsumowanie na Telegram
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monitor-korekt
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: rynek-k7q2/requirements.txt
+
+      - run: pip install -r rynek-k7q2/requirements.txt
+
+      - name: Przelicz monitor
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DAILY_SUMMARY: ${{ github.event.schedule == '20 21 * * 1-5' && '1' || '0' }}
+          SITE_URL: https://wisniewskifx.com/rynek-k7q2/
+        run: python rynek-k7q2/engine/build.py --out rynek-k7q2
+
+      - name: Zapisz wynik
+        run: |
+          git config user.name "monitor-bot"
+          git config user.email "monitor-bot@users.noreply.github.com"
+          git add rynek-k7q2/data.json rynek-k7q2/state.json
+          if git diff --cached --quiet; then echo "brak zmian"; exit 0; fi
+          git commit -m "monitor: aktualizacja danych"
+          git pull --rebase origin main
+          git push
