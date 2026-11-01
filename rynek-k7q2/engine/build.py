@@ -73,10 +73,10 @@ def headline_naive(cfg, d, nv):
     ph = PHASES[int(r["phase"])]["short"]
     if nv is None:
         return f"{cfg['name']}: {ph}. Drawdown {r['dd']:.1%} — brak aktywnej korekty."
-    s = (f"{cfg['name']}: {ph}. Historycznie korekty, które doszły do {nv['dd_low']:.1%}, kończyły się na: mediana "
-         f"{nv['p50']:.1%} ({nv['lvl_p50']:,.0f}), połowa między {nv['p75']:.1%} a {nv['p25']:.1%}"
-         f" ({nv['lvl_p75']:,.0f}–{nv['lvl_p25']:,.0f}); mediana {nv['days_med']:.0f} sesji do dna. n={nv['n']} korekt.")
-    return s.replace(",", " ")
+    lv = lambda x: f"{x:,.0f}".replace(",", " ")
+    return (f"{cfg['name']}: {ph}. Historycznie korekty, które doszły do {nv['dd_low']:.1%}, kończyły się na: mediana "
+            f"{nv['p50']:.1%} ({lv(nv['lvl_p50'])}), połowa między {nv['p75']:.1%} a {nv['p25']:.1%}"
+            f" ({lv(nv['lvl_p75'])}–{lv(nv['lvl_p25'])}); mediana {nv['days_med']:.0f} sesji do dna. n={nv['n']} korekt.")
 
 
 def bstats(d, col):
