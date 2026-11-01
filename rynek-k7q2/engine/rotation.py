@@ -204,6 +204,12 @@ def analyze(long_df, raw=None, frames=None):
            "rs_chart": {"d": [x.strftime("%Y-%m-%d") for x in rs_h.index], "v": [round(float(v), 5) for v in rs_h]},
            "ew_chart": {"d": [x.strftime("%Y-%m-%d") for x in ew.index], "v": [round(float(v), 5) for v in ew]} if ew is not None else None}
     out["conclusion"] = conclusion(out)
+    try:
+        import buy
+        out["buy"] = buy.rank(px[[k for k in IDX if k in px]])
+    except Exception:  # noqa
+        import traceback; traceback.print_exc()
+        out["buy"] = None
     return out
 
 

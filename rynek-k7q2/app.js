@@ -43,7 +43,7 @@ async function load(refresh = false) {
   D = nd;
   $("#updated").innerHTML = `Aktualizacja: ${D.generated} · dane do ${D.indices[ORDER.find(k => D.indices[k])].last_date}` +
     (D.synthetic ? '<span class="badge-syn">DANE TESTOWE</span>' : "");
-  const tabs = [["USA", "🇺🇸 USA"], ...ORDER.filter(k => D.indices[k]).map(k => [k, D.indices[k].name]), ["LEAD", "Liderzy spadków"], ["CHECK", "✓ Sprawdzalność"], ["META", "Metodologia"]];
+  const tabs = [["USA", "🇺🇸 USA"], ...ORDER.filter(k => D.indices[k]).map(k => [k, D.indices[k].name]), ["BUY", "Co kupić"], ["LEAD", "Liderzy spadków"], ["CHECK", "✓ Sprawdzalność"], ["META", "Metodologia"]];
   $("#tabs").innerHTML = tabs.map(([k, n]) => {
     const c = D.indices[k] ? D.indices[k].phase.color : (k === "USA" ? D.usa.consensus.color : null);
     return `<button data-t="${k}">${c ? `<span class="dot" style="background:${c}"></span>` : ""}${n}</button>`;
@@ -53,7 +53,7 @@ async function load(refresh = false) {
 }
 window.addEventListener("hashchange", () => { const t = location.hash.slice(1); if (D && t && t !== TAB) go(t); });
 function go(t, keepScroll = false) {
-  if (!(t === "USA" || t === "META" || t === "CHECK" || t === "LEAD" || (D.indices && D.indices[t]))) t = "USA";
+  if (!(t === "USA" || t === "META" || t === "CHECK" || t === "LEAD" || t === "BUY" || (D.indices && D.indices[t]))) t = "USA";
   TAB = t;
   if (location.hash.slice(1) !== t) history.replaceState(null, "", "#" + t);
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
@@ -62,6 +62,7 @@ function go(t, keepScroll = false) {
   else if (t === "META") renderMeta();
   else if (t === "CHECK") renderCheck();
   else if (t === "LEAD") renderLead();
+  else if (t === "BUY") renderBuy();
   else renderIndex(D.indices[t]);
 }
 
@@ -371,6 +372,51 @@ function troughTable(x) {
     <td>${t.phase_at ? `<span style="color:${D.phases[t.phase_at].color}">●</span> ${D.phases[t.phase_at].short}` : "—"}</td><td>${t.phase4_near ? "✓" : "—"}</td>
     <td class="n">${t.score_at == null ? "—" : fmt(t.score_at, 0)}</td><td class="n">${t.p5_lag == null ? "brak" : t.p5_lag + " sesji"}</td><td class="n">${t.p5_vs_low == null ? "—" : pct(t.p5_vs_low, 1, true)}</td></tr>`).join("")}
   </table></div>`;
+}
+
+/* ---------------- CO KUPIĆ ---------------- */
+function renderBuy() {
+  const R = D.rotation, B = R && R.buy;
+  if (!B) { $("#app").innerHTML = '<div class="loading">Brak danych.</div>'; return; }
+  const N = R.names, v = B.verdict, rows = B.rows;
+  const ROL = { leader: "lider spadków", laggard: "najsilniejszy", middle: "środek stawki" };
+  const TYP = { selective: "SELEKTYWNA KOREKTA", broad: "SZEROKA KOREKTA", none: "BRAK ISTOTNEJ KOREKTY" };
+  const col = v.type === "przewaga" ? "var(--past)" : "var(--approach)";
+  const head = v.type === "przewaga" ? `${N[v.winner]} — przewaga statystyczna` : v.type === "remis" ? `Remis statystyczny — przy remisie: ${N[v.safest]} (najmniejsze ryzyko)` : "Brak danych";
+  const lv = R.leader_vs_laggard;
+  let h = `
+  <div class="hero" style="--phase-bg:${v.type === "przewaga" ? "#2fb36b33" : "#e0a01933"}">
+    <span class="pill" style="color:${col};border-color:${col}">${TYP[B.market_type] || B.market_type}</span>
+    <h2>${head}</h2>
+    <ul style="margin:8px 0 0;padding-left:18px;line-height:1.75;color:var(--text-2)">${B.text.map(x => `<li>${x}</li>`).join("")}</ul>
+  </div>
+  <div class="section">Ranking <small>historycznie podobne sytuacje: ten sam typ korekty, ta sama rola indeksu, spadek ±3 pp</small></div>
+  <div class="card tbl"><table>
+    <tr><th>#</th><th>Indeks</th><th>Rola dziś</th><th class="n">Od 52-tyg. szczytu</th><th class="n">Epizody</th><th class="n">Mediana 60 ses.</th><th class="n">Mediana 120 ses. (epizody)</th><th class="n">% zysku 120</th><th class="n">10% najgorszych 120</th><th class="n">10% najlepszych 120</th><th class="n">Mediana 250 ses.</th><th class="n">Typowo 120 ses.</th></tr>
+    ${B.ranking.map((k, i) => { const r = rows[k]; const thin = r.n_eps < 8;
+      return `<tr style="${thin ? "opacity:.6" : ""}"><td class="n">${i + 1}</td><td><span style="color:${IXC[k]}">●</span> <b>${N[k]}</b>${thin ? ' <span class="pill st-far">mało danych</span>' : ""}</td>
+      <td>${ROL[r.role] || r.role}</td><td class="n">${pct(r.dd_now)}</td><td class="n">${r.n_eps}</td>
+      <td class="n">${pct(r.med60, 1, true)}</td><td class="n"><b>${pct(r.ep_med120, 1, true)}</b></td><td class="n">${pct(r.win120, 0)}</td>
+      <td class="n" style="color:var(--zone)">${pct(r.p10_120, 1, true)}</td><td class="n" style="color:var(--past)">${pct(r.p90_120, 1, true)}</td>
+      <td class="n">${pct(r.med250, 1, true)}</td><td class="n" style="color:var(--muted)">${pct(r.base_med120, 1, true)}</td></tr>`; }).join("")}
+  </table>
+  <div class="note"><b>Reguła decyzyjna (ustalona przed obliczeniem):</b> ${v.rule || ""}. Gdy nie jest spełniona — remis i wybór indeksu z najpłytszym „najgorszym scenariuszem”. „Typowo” = mediana zwrotu 120 sesji z dowolnego dnia w historii tego indeksu.</div></div>
+
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card"><h3>Rozrzut wyników po 120 sesjach (10–90%, kropka = mediana)</h3><div id="c_buy" class="chart sm"></div></div>
+    <div class="card" style="font-size:13.5px;line-height:1.65"><h3>Kontekst z historii (od 1985)</h3>
+      <p><b>Korekta selektywna</b>, kupno <b>lidera spadków</b> (indeksu, który spadł najmocniej) w dniu jego −10% vs kupno <b>najsilniejszego</b>: po 60 sesjach lider lepszy w ${pct(lv.selective["60"].lead_wins, 0)}, po 250 w ${pct(lv.selective["250"].lead_wins, 0)} (mediana różnicy ${pct(lv.selective["250"].rel_med, 1, true)}).</p>
+      <p><b>Korekta szeroka:</b> po 60 sesjach lider spadków lepszy tylko w ${pct(lv.broad["60"].lead_wins, 0)} — czyli najsilniejszy indeks wygrywał w ${pct(1 - lv.broad["60"].lead_wins, 0)}; po 250 sesjach lider lepszy w ${pct(lv.broad["250"].lead_wins, 0)}.</p>
+      <p><b>Uwaga:</b> to statystyka z ograniczonej liczby epizodów. Bańka (2000) to przypadek, w którym kupowanie lidera spadków oznaczało lata strat — żaden model tego nie wykluczy.</p></div>
+  </div>`;
+  $("#app").innerHTML = h;
+  const ks = B.ranking;
+  plot("c_buy", [
+    { x: ks.map(k => N[k]), y: ks.map(k => rows[k].p90_120 - rows[k].p10_120), base: ks.map(k => rows[k].p10_120), type: "bar",
+      marker: { color: ks.map(k => IXC[k] + "66") }, hovertemplate: "%{x}: 10–90%<extra></extra>", width: .45, showlegend: false },
+    { x: ks.map(k => N[k]), y: ks.map(k => rows[k].ep_med120), type: "scatter", mode: "markers", marker: { size: 13, color: ks.map(k => IXC[k]), line: { color: "#fff", width: 2 } },
+      hovertemplate: "%{x}: mediana %{y:.1%}<extra></extra>", showlegend: false }],
+    { hovermode: "closest", yaxis: { tickformat: ".0%", gridcolor: "#1f242b", zeroline: true, zerolinecolor: "#3a404a" } });
 }
 
 /* ---------------- LIDERZY SPADKÓW ---------------- */
