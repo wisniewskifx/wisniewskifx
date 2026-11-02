@@ -118,3 +118,10 @@ tr.cur td { background: color-mix(in srgb, var(--approach) 10%, transparent); }
 .note { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
 .big-fc { font: 800 34px var(--mono); letter-spacing: -.02em; }
 .badge-syn { background: #7f1d1d; color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-left: 8px; }
+
+.private-note { max-width: 1400px; margin: 10px auto 0; padding: 7px 16px; font-size: 12px; color: var(--muted); }
+.private-note span { margin-left: 8px; opacity: .8; }
+footer { max-width: 900px; margin: 0 auto; line-height: 1.6; }
+.modebar { background: transparent !important; }
+.modebar-btn path { fill: #7d7b74 !important; }
+.modebar-btn:hover path { fill: #eceae4 !important; }

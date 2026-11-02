@@ -3,6 +3,7 @@ name: Monitor korekt
 on:
   schedule:
     - cron: "*/30 13-21 * * 1-5"   # co 30 min w trakcie sesji USA (UTC)
+    - cron: "40 5 * * 1-5"         # rano (ok. 6:40 PL): odświeżenie Fear&Greed, danych z nocy
     - cron: "20 21 * * 1-5"        # po zamknięciu USA: pełne przeliczenie + podsumowanie na Telegram
   workflow_dispatch:
 

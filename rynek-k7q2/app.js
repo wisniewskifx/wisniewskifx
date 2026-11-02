@@ -30,10 +30,26 @@ const LAYOUT = (extra = {}) => Object.assign({
   legend: { orientation: "h", y: 1.12, x: 0, font: { size: 12 } },
   showlegend: true,
 }, extra);
-const CFG = { displayModeBar: false, responsive: true };
+const CFG = { responsive: true, displaylogo: false, displayModeBar: "hover", doubleClick: "reset",
+  modeBarButtons: [["zoomIn2d", "zoomOut2d", "autoScale2d"]], locale: "pl" };
+const CFG_STATIC = { displayModeBar: false, responsive: true, staticPlot: false, scrollZoom: false };
 const plot = (id, traces, layout) => Plotly.newPlot(id, traces, LAYOUT(layout), CFG);
 const BS = () => D.models && D.models.bottom && D.models.bottom.pass;
 const FC = () => D.models && D.models.forecast && D.models.forecast.pass;
+
+/* ---------------- stan sesji USA (Nowy Jork) ---------------- */
+function sessionInfo() {
+  try {
+    const ny = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const d = ny.getDay(), m = ny.getHours() * 60 + ny.getMinutes();
+    if (d >= 1 && d <= 5 && m >= 570 && m < 960) return '<span style="color:var(--past)">● sesja USA trwa — odświeżanie co ~30 min</span>';
+    const toOpen = (() => { let add = 0, dd = d, mm = m;
+      while (true) { if (dd >= 1 && dd <= 5 && (add > 0 || mm < 570)) break; add++; dd = (dd + 1) % 7; mm = 0; }
+      const t = new Date(ny); t.setDate(t.getDate() + add); t.setHours(9, 30, 0, 0);
+      return Math.round((t - ny) / 3600000); })();
+    return `<span style="color:var(--muted)">● rynek USA zamknięty — otwarcie za ~${toOpen} h (15:30 PL)</span>`;
+  } catch (e) { return ""; }
+}
 
 /* ---------------- boot ---------------- */
 async function load(refresh = false) {
@@ -41,7 +57,7 @@ async function load(refresh = false) {
   const nd = await r.json();
   if (refresh && D && nd.generated === D.generated) return;
   D = nd;
-  $("#updated").innerHTML = `Aktualizacja: ${D.generated} · dane do ${D.indices[ORDER.find(k => D.indices[k])].last_date}` +
+  $("#updated").innerHTML = `Przeliczono: ${D.generated} · ostatnia sesja USA: ${D.indices[ORDER.find(k => D.indices[k])].last_date} · ${sessionInfo()}` +
     (D.synthetic ? '<span class="badge-syn">DANE TESTOWE</span>' : "");
   const tabs = [["USA", "🇺🇸 USA"], ...ORDER.filter(k => D.indices[k]).map(k => [k, D.indices[k].name]), ["BUY", "Co kupić"], ["LEAD", "Liderzy spadków"], ["CHECK", "✓ Sprawdzalność"], ["META", "Metodologia"]];
   $("#tabs").innerHTML = tabs.map(([k, n]) => {
@@ -307,7 +323,7 @@ function drawSpark(c, i) {
     { x: c.spark.d, y: c.spark.v, type: "scatter", mode: "lines", line: { color: col, width: 2 }, hovertemplate: "%{x}: %{y:.2f}<extra></extra>" },
     { x: c.spark.d, y: c.spark.ma, type: "scatter", mode: "lines", line: { color: "#7d7b74", width: 1, dash: "dot" }, hoverinfo: "skip" },
   ], LAYOUT({ margin: { l: 0, r: 0, t: 2, b: 2 }, showlegend: false, hovermode: "closest",
-    xaxis: { visible: false }, yaxis: { visible: false } }), CFG);
+    xaxis: { visible: false, fixedrange: true }, yaxis: { visible: false, fixedrange: true }, dragmode: false }), CFG_STATIC);
 }
 
 function condHTML(i, c) {
