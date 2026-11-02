@@ -119,10 +119,10 @@ def build_cards(d, cfg):
     st = "risk" if cr <= -0.025 else "approach" if cr <= -0.01 else "far"
     out.append(card("credit", "Kredyt HYG/IEF (20d)", d["credit_20d"], "%", st,
                     f"{cr:+.1%} w 20 sesji. " +
-                    ("Stres kredytowy — ryzyko, że to duża korekta/bessa, nie mała." if cr <= -0.025 else
+                    ("Stres kredytowy — rynek wycenia ryzyko w gospodarce." if cr <= -0.025 else
                      "Lekkie pogorszenie." if cr <= -0.01 else
-                     "Kredyt spokojny — rynek nie wycenia problemu w gospodarce (sprzyja małej korekcie)."),
-                    "Obligacje śmieciowe vs skarbowe. Spadek = ucieczka od ryzyka kredytowego.", scale=100))
+                     "Kredyt spokojny."),
+                    "Obligacje śmieciowe vs skarbowe. Uwaga z testów: w momencie paniki stres kredytowy NIE odróżniał małych korekt od bess (to część samej paniki); przed szczytami wyprzedzał o 6+ miesięcy.", scale=100))
 
     # 8. HY OAS
     if d["oas"].notna().sum() > 300:
