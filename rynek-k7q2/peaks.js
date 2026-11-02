@@ -35,7 +35,7 @@ function render() {
   let h = `
   <div class="hero" style="--phase-bg:#2fb36b22">
     <span class="pill st-far">${x.name} · ${x.near ? "blisko rekordu (" + pct(x.dd) + ")" : pct(x.dd) + " od rekordu"}</span>
-    <h2>${x.near ? `Świeci teraz: ${litNow.length} z ${keys.length} składników` : "Indeks jest w korekcie — termometr szczytu nieaktywny"}</h2>
+    <h2>${x.near ? `Świeci teraz: ${litNow.length} z ${keys.length} składników` : x.dd > -0.10 ? `Indeks ${pct(x.dd)} pod rekordem — poza strefą rekordu (≤3%), składniki pokazane informacyjnie` : "Indeks w korekcie ≥10% — szczyt już był, sygnały szczytu nieaktualne"}</h2>
     <ul style="margin:8px 0 0;padding-left:18px;line-height:1.75;color:var(--text-2)">${P.conclusions.map(c => `<li>${c}</li>`).join("")}</ul>
   </div>
 
