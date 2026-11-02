@@ -32,11 +32,33 @@ def fetch_yahoo(tickers=None, retries=3):
             df = df.dropna(how="all")
             if len(df) > 1000:
                 df.index = pd.to_datetime(df.index).tz_localize(None)
-                return df
+                return _refill(df, tickers)
         except Exception as e:  # noqa
             last = e
         time.sleep(5 * (i + 1))
     raise RuntimeError(f"Yahoo download failed: {last}")
+
+
+def _refill(df, tickers, start=START):
+    """Yahoo czasem zwraca w paczce puste/dziurawe serie — dociągnij je pojedynczo."""
+    import yfinance as yf
+    for t in tickers:
+        bad = t not in df or df[t].iloc[-500:].notna().mean() < 0.9
+        if not bad:
+            continue
+        for k in range(3):
+            try:
+                x = yf.download(t, start=start, auto_adjust=True, progress=False)
+                if len(x):
+                    c = x["Close"]
+                    c = c.iloc[:, 0] if isinstance(c, pd.DataFrame) else c
+                    c.index = pd.to_datetime(c.index).tz_localize(None)
+                    df[t] = c.reindex(df.index)
+                    break
+            except Exception:  # noqa
+                pass
+            time.sleep(3 * (k + 1))
+    return df
 
 
 def fetch_long(start="1985-01-01", retries=3):
@@ -49,7 +71,7 @@ def fetch_long(start="1985-01-01", retries=3):
             df = raw["Close"].dropna(how="all")
             df.index = pd.to_datetime(df.index).tz_localize(None)
             if len(df) > 5000:
-                return df
+                return _refill(df, tick, start)
         except Exception:  # noqa
             pass
         time.sleep(5 * (i + 1))

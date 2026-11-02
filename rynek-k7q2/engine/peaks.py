@@ -351,6 +351,10 @@ def conclusions(o):
     passed = [o["comp"][k]["label"] for k, s in o["summary"].items() if s["pass"]]
     failed = [o["comp"][k]["label"] for k, s in o["summary"].items() if not s["pass"] and s["available"]]
     L.append(("Składniki, które przeszły test: " + ", ".join(passed) + ".") if passed else "Żaden składnik nie przeszedł testu jako sygnał szczytu.")
+    s = o["summary"].get("breadth_ew")
+    if s and s["pass"] and set(s["passed_on"]) - {"NDX"} and len(set(s["passed_on"]) & {"SPX", "DJI", "RUT"}) >= 2:
+        L.append("Uwaga: „Szerokość: equal-weight” dla S&P 500, Dow i Russella liczona jest z tej samej pary RSP/SPY — te wyniki nie są od siebie niezależne. "
+                 + ("Na Nasdaq-100 (własna para QQEW/QQQ) " + ("też przechodzi." if "NDX" in s["passed_on"] else "NIE przechodzi.") if "NDX" in s["available"] else "Na Nasdaq-100 brak danych do testu."))
     if failed:
         L.append("Nie przeszły (tylko opis stanu): " + ", ".join(failed) + ".")
     L.append("Termometr łączny: " + ("ZALICZONY — pokazywany." if o["therm"]["pass"] else "NIEZALICZONY — nie jest pokazywany jako prognoza."))
