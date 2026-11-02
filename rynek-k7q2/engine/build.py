@@ -15,7 +15,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
 from config import INDICES, PHASES, CHART_DAYS          # noqa: E402
-import features, phases, model, model2, cards, alerts, verify, rotation   # noqa: E402
+import features, phases, model, model2, cards, alerts, verify, rotation, peaks   # noqa: E402
 
 
 def clean(o):
@@ -275,6 +275,19 @@ def main():
     try:
         if long_df is not None:
             rot = rotation.analyze(long_df, raw, frames)
+    except Exception:  # noqa
+        import traceback; traceback.print_exc()
+    try:
+        if a.synthetic and "^TNX" not in long_df:
+            rng = np.random.default_rng(5)
+            long_df["^TNX"] = 3 + np.cumsum(rng.normal(0, 0.05, len(long_df)))
+        pk = peaks.build(frames, raw, long_df, {k: INDICES[k]["name"] for k in frames})
+        pk["generated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        pk["synthetic"] = a.synthetic
+        pk = clean(pk)
+        with open(os.path.join(a.out, "peaks.json"), "w", encoding="utf-8") as f:
+            json.dump(pk, f, ensure_ascii=False, separators=(",", ":"))
+        print("[ok] peaks.json; składniki zaliczone:", [k for k, s in pk["summary"].items() if s["pass"]], "termometr:", pk["therm"]["pass"])
     except Exception:  # noqa
         import traceback; traceback.print_exc()
     out = {"generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),

@@ -60,7 +60,7 @@ async function load(refresh = false) {
   $("#updated").innerHTML = `Przeliczono: ${D.generated} · ostatnia sesja USA: ${D.indices[ORDER.find(k => D.indices[k])].last_date} · ${sessionInfo()}` +
     (D.synthetic ? '<span class="badge-syn">DANE TESTOWE</span>' : "");
   const tabs = [["USA", "🇺🇸 USA"], ...ORDER.filter(k => D.indices[k]).map(k => [k, D.indices[k].name]), ["BUY", "Co kupić"], ["LEAD", "Liderzy spadków"], ["CHECK", "✓ Sprawdzalność"], ["META", "Metodologia"]];
-  $("#tabs").innerHTML = tabs.map(([k, n]) => {
+  $("#tabs").innerHTML = `<a href="szczyty.html" class="navback" style="order:9">Szczyty i wzrosty →</a>` + tabs.map(([k, n]) => {
     const c = D.indices[k] ? D.indices[k].phase.color : (k === "USA" ? D.usa.consensus.color : null);
     return `<button data-t="${k}">${c ? `<span class="dot" style="background:${c}"></span>` : ""}${n}</button>`;
   }).join("");

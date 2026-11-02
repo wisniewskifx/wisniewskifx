@@ -125,3 +125,5 @@ footer { max-width: 900px; margin: 0 auto; line-height: 1.6; }
 .modebar { background: transparent !important; }
 .modebar-btn path { fill: #7d7b74 !important; }
 .modebar-btn:hover path { fill: #eceae4 !important; }
+.navback { color: var(--text-2); text-decoration: none; font: 600 13px Inter; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); margin-right: 6px; }
+.navback:hover { background: var(--surface-2); color: var(--text); }

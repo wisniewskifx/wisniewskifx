@@ -42,7 +42,7 @@ def fetch_yahoo(tickers=None, retries=3):
 def fetch_long(start="1985-01-01", retries=3):
     """Długa historia samych indeksów (do analizy Nasdaq vs szeroki rynek)."""
     import yfinance as yf
-    tick = ["^NDX", "^GSPC", "^DJI", "^RUT", "XLK", "XLF", "XLE", "XLV", "XLY", "XLP", "XLI", "XLU", "XLB"]
+    tick = ["^NDX", "^GSPC", "^DJI", "^RUT", "XLK", "XLF", "XLE", "XLV", "XLY", "XLP", "XLI", "XLU", "XLB", "^TNX", "^IRX"]
     for i in range(retries):
         try:
             raw = yf.download(tick, start=start, auto_adjust=True, progress=False, threads=True)
