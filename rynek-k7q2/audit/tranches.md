@@ -54,6 +54,18 @@ Epizody z Kapitulacją: 56 (S&P 12, Nasdaq 24, Russell 10, Dow 10). W tym duże 
 | G. 4 × 25% co 20 sesji | +3.6% | +8.2% | -3.5% (śr. -2.7%) | 29% | -8.3% | 0% |
 | H. 60% + 40% w Dno zaliczone | +1.0% | +7.3% | -1.0% (śr. -2.1%) | 21% | -7.3% | 20% |
 
+## Czas od Kapitulacji do dna
+
+- **Wszystkie** (n=56), od PIERWSZEJ Kapitulacji: mediana 11 sesji, średnio 67, połowa przypadków 1–57; dno w ≤5 sesji: 45%, ≤10: 48%, ≤20: 59%, >60: 25%
+  - od OSTATNIEJ Kapitulacji przed dnem: mediana 1 sesji, średnio 8, połowa przypadków 0–5; dno w ≤5 sesji: 78%, ≤10: 93%, ≤20: 96%, >60: 2%; średnio 7.2 wejść w Kapitulację na epizod
+- **Małe korekty (<20%)** (n=40), od PIERWSZEJ Kapitulacji: mediana 3 sesji, średnio 16, połowa przypadków 0–20; dno w ≤5 sesji: 62%, ≤10: 68%, ≤20: 75%, >60: 8%
+  - od OSTATNIEJ Kapitulacji przed dnem: mediana 1 sesji, średnio 1, połowa przypadków 0–2; dno w ≤5 sesji: 95%, ≤10: 100%, ≤20: 100%, >60: 0%; średnio 2.5 wejść w Kapitulację na epizod
+- **Duże / bessy (≥20%)** (n=16), od PIERWSZEJ Kapitulacji: mediana 176 sesji, średnio 193, połowa przypadków 45–332; dno w ≤5 sesji: 0%, ≤10: 0%, ≤20: 19%, >60: 69%
+  - od OSTATNIEJ Kapitulacji przed dnem: mediana 6 sesji, średnio 25, połowa przypadków 5–9; dno w ≤5 sesji: 38%, ≤10: 75%, ≤20: 88%, >60: 6%; średnio 19.1 wejść w Kapitulację na epizod
+- **Nasdaq-100** (n=24), od PIERWSZEJ Kapitulacji: mediana 3 sesji, średnio 28, połowa przypadków 0–19; dno w ≤5 sesji: 58%, ≤10: 62%, ≤20: 75%, >60: 8%
+  - od OSTATNIEJ Kapitulacji przed dnem: mediana 2 sesji, średnio 4, połowa przypadków 0–4; dno w ≤5 sesji: 83%, ≤10: 91%, ≤20: 96%, >60: 0%; średnio 4.2 wejść w Kapitulację na epizod
+- Każde wejście w Kapitulację jako osobny sygnał (n=256): mediana 74 sesji, średnio 109, połowa przypadków 11–171; dno w ≤5 sesji: 20%, ≤10: 25%, ≤20: 34%, >60: 50%
+
 ## Test warunkowy: kredyt w dniu T1
 
 Epizody z danymi kredytu (od 2007): 50 — STRES (HYG/IEF 20 sesji ≤ −2,5%): 23, SPOKÓJ: 27.
