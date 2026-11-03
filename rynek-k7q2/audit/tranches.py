@@ -100,9 +100,16 @@ for key, cfg in INDICES.items():
             continue
         trough = seg["close"].min()
         final_dd = seg["dd"].min()
+        it = d.index.get_loc(seg["close"].idxmin())
+        # wszystkie wejścia w Kapitulację w epizodzie (każde = osobny sygnał)
+        ph_seg = seg["phase"].to_numpy()
+        entries = [d.index.get_loc(seg.index[j]) for j in range(len(seg)) if ph_seg[j] == 4 and (j == 0 or ph_seg[j - 1] != 4)]
         r = {"idx": key, "t1": str(p4[0].date()), "dd_t1": float(d["dd"].iat[i1]), "final_dd": float(final_dd),
              "further": float(trough / c[i1] - 1), "big": bool(final_dd <= -0.20),
-             "credit20": float(d["credit_20d"].iat[i1]) if pd.notna(d["credit_20d"].iat[i1]) else None}
+             "credit20": float(d["credit_20d"].iat[i1]) if pd.notna(d["credit_20d"].iat[i1]) else None,
+             "trough_date": str(d.index[it].date()), "sess_to_trough": int(it - i1),
+             "n_entries": len(entries), "sess_last_entry_to_trough": int(it - max(e_ for e_ in entries if e_ <= it)) if any(e_ <= it for e_ in entries) else None,
+             "entry_gaps": [int(it - e_) for e_ in entries if e_ <= it]}
         vals = {}
         for p in PLANS:
             b = plan_buys(d, i1, p)
@@ -142,6 +149,20 @@ for sub, title, k in [(df, "Wszystkie epizody", "all"), (df[~df.big], "Małe kor
     if len(sub):
         t, R[k] = table(sub, title)
         L += t
+# ---------------- CZAS OD KAPITULACJI DO DNA ----------------
+def tstats(x):
+    x = np.asarray(x, float)
+    return (f"mediana {np.median(x):.0f} sesji, średnio {x.mean():.0f}, połowa przypadków {np.percentile(x,25):.0f}–{np.percentile(x,75):.0f}; "
+            f"dno w ≤5 sesji: {(x<=5).mean()*100:.0f}%, ≤10: {(x<=10).mean()*100:.0f}%, ≤20: {(x<=20).mean()*100:.0f}%, >60: {(x>60).mean()*100:.0f}%")
+L += ["## Czas od Kapitulacji do dna", ""]
+for lab, g in (("Wszystkie", df), ("Małe korekty (<20%)", df[~df.big]), ("Duże / bessy (≥20%)", df[df.big]), ("Nasdaq-100", df[df.idx == "NDX"])):
+    if len(g):
+        L.append(f"- **{lab}** (n={len(g)}), od PIERWSZEJ Kapitulacji: {tstats(g.sess_to_trough)}")
+        L.append(f"  - od OSTATNIEJ Kapitulacji przed dnem: {tstats(g.sess_last_entry_to_trough.dropna())}; średnio {g.n_entries.mean():.1f} wejść w Kapitulację na epizod")
+allg = [x for r in rows for x in r["entry_gaps"]]
+L += [f"- Każde wejście w Kapitulację jako osobny sygnał (n={len(allg)}): {tstats(allg)}", ""]
+R["timing"] = {"first": df.sess_to_trough.describe().to_dict(), "last": df.sess_last_entry_to_trough.describe().to_dict()}
+
 # ---------------- TEST WARUNKOWY ----------------
 cd = df[df.credit20.notna()].copy()
 cd["stress"] = cd.credit20 <= -0.025
