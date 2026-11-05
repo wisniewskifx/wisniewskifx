@@ -2,9 +2,10 @@ name: Monitor korekt
 
 on:
   schedule:
-    - cron: "*/30 13-21 * * 1-5"   # co 30 min w trakcie sesji USA (UTC)
-    - cron: "40 5 * * 1-5"         # rano (ok. 6:40 PL): odświeżenie Fear&Greed, danych z nocy
-    - cron: "20 21 * * 1-5"        # po zamknięciu USA: pełne przeliczenie + podsumowanie na Telegram
+    - cron: "7,22,37,52 13-20 * * 1-5"  # co 15 min w sesji USA; nietypowe minuty, bo GitHub opóźnia/pomija starty o :00 i :30
+    - cron: "7,22 21 * * 1-5"           # końcówka sesji
+    - cron: "41 5 * * 1-5"         # rano (ok. 6:40 PL): odświeżenie Fear&Greed, danych z nocy
+    - cron: "43 21 * * 1-5"        # po zamknięciu USA: pełne przeliczenie + podsumowanie na Telegram
   workflow_dispatch:
 
 permissions:
@@ -33,7 +34,7 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          DAILY_SUMMARY: ${{ github.event.schedule == '20 21 * * 1-5' && '1' || '0' }}
+          DAILY_SUMMARY: ${{ github.event.schedule == '43 21 * * 1-5' && '1' || '0' }}
           SITE_URL: https://wisniewskifx.com/rynek-k7q2/
         run: python rynek-k7q2/engine/build.py --out rynek-k7q2
 

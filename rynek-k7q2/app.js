@@ -42,7 +42,8 @@ function sessionInfo() {
   try {
     const ny = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const d = ny.getDay(), m = ny.getHours() * 60 + ny.getMinutes();
-    if (d >= 1 && d <= 5 && m >= 570 && m < 960) return '<span style="color:var(--past)">● sesja USA trwa — odświeżanie co ~30 min</span>';
+    if (d >= 1 && d <= 5 && m >= 570 && m < 960) { let age = ""; try { const g = new Date(D.generated.replace(" UTC", "Z").replace(" ", "T")); age = ` · dane sprzed ${Math.max(0, Math.round((Date.now() - g) / 60000))} min`; } catch (e) {}
+      return `<span style="color:var(--past)">● sesja USA trwa — odświeżanie co ~15 min${age}</span>`; }
     const toOpen = (() => { let add = 0, dd = d, mm = m;
       while (true) { if (dd >= 1 && dd <= 5 && (add > 0 || mm < 570)) break; add++; dd = (dd + 1) % 7; mm = 0; }
       const t = new Date(ny); t.setDate(t.getDate() + add); t.setHours(9, 30, 0, 0);
