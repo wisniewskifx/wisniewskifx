@@ -97,6 +97,8 @@ def process(key, cfg, raw, oas):
     r = d.iloc[-1]
     p = int(r["phase"])
     _, _, conds = phases.classify_row(r)
+    near_note = (f"Uwaga: {r['dd']:.1%} od rekordu — tuż nad progiem pullbacku (−5%)."
+                 if p == 1 and r["dd"] <= -0.03 else None)
     conf = float(np.mean([v for _, v in conds[p][1]]))
     runs = (d["phase"] != d["phase"].shift()).cumsum()
     since = int((runs == runs.iloc[-1]).sum())
@@ -131,7 +133,7 @@ def process(key, cfg, raw, oas):
         "bottom_base": float(r["bottom_base"]) if pd.notna(r["bottom_base"]) else None,
         "bottom_d3": float(bs.iloc[-1] - bs.iloc[-3:].mean()) if len(bs) > 10 and bs.index[-1] == d.index[-1] else None,
         "bottom_d10": float(bs.iloc[-1] - bs.iloc[-10:].mean()) if len(bs) > 10 and bs.index[-1] == d.index[-1] else None,
-        "phase": {"id": p, **PHASES[p], "conf": conf, "since": since,
+        "phase": {"id": p, **PHASES[p], "conf": conf, "since": since, "note": near_note,
                   "raw": int(r["phase_raw"]) if pd.notna(r["phase_raw"]) else p, "lean": lean, "lean_txt": lean_txt,
                   "conditions": {str(k): {"ok": v[0], "items": v[1]} for k, v in conds.items()},
                   "timeline": {"d": [x.strftime("%Y-%m-%d") for x in tl.index], "p": ser(tl, 0)}},

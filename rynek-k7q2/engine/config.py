@@ -31,8 +31,8 @@ N_SIM = 4000
 CHART_DAYS = 760     # ~3 lata na wykresach
 
 PHASES = {
-    1: dict(name="HOSSA — ZERO SYGNAŁU", short="HOSSA", color="#3b82f6",
-            action="Nic nie rób. Brak korekty — nie łap dołków, nie shortuj siły."),
+    1: dict(name="BRAK KOREKTY — ZERO SYGNAŁU", short="BRAK KOREKTY", color="#3b82f6",
+            action="Spadek płytszy niż −5% od rekordu. Nie łap dołków — to jeszcze nie korekta."),
     2: dict(name="PULLBACK — ZA WCZEŚNIE", short="PULLBACK", color="#a3a3a3",
             action="Przygotuj poziomy i listę. Nie kupuj — spadek dopiero się rozkręca."),
     3: dict(name="ESKALACJA — DNO PRZED NAMI", short="ESKALACJA", color="#f59e0b",

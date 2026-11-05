@@ -134,7 +134,7 @@ function tileHTML(k) {
   const x = D.indices[k], f = x.forecast, p = x.phase;
   const b = x.bottom;
   return `<div class="card tile" data-k="${k}" style="border-top:3px solid ${p.color}">
-    <div style="display:flex;justify-content:space-between;align-items:center"><span class="name">${x.name}</span>${phasePill(p)}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center"><span class="name">${x.name}</span>${phasePill(p)}</div>${p.note ? `<div style="font-size:11.5px;color:var(--approach);margin-top:4px">⚠ blisko progu −5%</div>` : ""}
     <div class="kpi"><div class="val">${fmt(x.close, 0)}</div>
     <div class="meta"><span class="${x.chg1d >= 0 ? "up" : "down"}">${pct(x.chg1d, 2, true)}</span> · drawdown <b>${pct(x.dd)}</b> · ${x.days_from_peak} sesji</div></div>
     ${BS() ? `<div style="margin-top:10px;font-size:12px;color:var(--muted)">Bottom Score ${b == null ? "—" : `<b class="mono" style="color:var(--text)">${fmt(b, 0)}</b>/100 ${arrow(x.bottom_d10, false, 2)} ${x.bottom_d10 == null ? "" : fmt(x.bottom_d10, 0) + " vs 10d"}`}</div>
@@ -157,6 +157,7 @@ function renderIndex(x) {
     ${phasePill(p)} <span class="pill st-far">${x.name} · ${x.last_date}</span>
     <h2>${p.name}</h2>
     <div class="action">→ ${p.action}</div>
+    ${p.note ? `<div class="action" style="color:var(--approach)">⚠ ${p.note}</div>` : ""}
     <div class="headline">${x.headline}</div>
     <div class="lean">${pill(leanSt, "Momentum")} ${p.lean_txt}</div>
     ${p.raw != null && p.raw !== p.id && D.phases[p.raw] ? `<div class="note">Dzisiejsze warunki wskazują fazę „${D.phases[p.raw].short}” — czeka na potwierdzenie (2 sesje).</div>` : ""}
